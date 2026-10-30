@@ -1212,13 +1212,15 @@ const FONT_DATA = /*FONTS*/[];
   function threeMF(solids) {
     const hex = c => c.replace("#", "").toUpperCase() + "FF";
     const objs = [];
-    for (const f of [1, 2, 3, 4]) solids[f].forEach(g => objs.push({ id: objs.length + 2, name: `Filament ${f}`, pindex: f - 1, g }));
+    const used = [1, 2, 3, 4].filter(f => solids[f].length);
+    for (const f of used) solids[f].forEach(g => objs.push({ id: objs.length + 2, name: `Filament ${f}`, f, pindex: used.indexOf(f), g }));
     if (!objs.length) throw new Error("rien à exporter");
     const top = objs.length + 2;
+    // Groupe de couleurs standard : Bambu Studio propose alors d'associer chaque couleur à un filament du projet
     const model = `<?xml version="1.0" encoding="UTF-8"?>
-<model unit="millimeter" xml:lang="fr-FR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+<model unit="millimeter" xml:lang="fr-FR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02">
 <resources>
-<basematerials id="1">${project.filaments.map((c, i) => `<base name="Filament ${i + 1}" displaycolor="#${hex(c)}"/>`).join("")}</basematerials>
+<m:colorgroup id="1">${used.map(f => `<m:color color="#${hex(project.filaments[f - 1])}"/>`).join("")}</m:colorgroup>
 ${objs.map(o => `<object id="${o.id}" name="${o.name}" type="model" pid="1" pindex="${o.pindex}">${meshXml([o.g])}</object>`).join("\n")}
 <object id="${top}" name="${esc(project.nom || "Lettrage")}" type="model"><components>${objs.map(o => `<component objectid="${o.id}"/>`).join("")}</components></object>
 </resources>
@@ -1236,10 +1238,10 @@ ${objs.map(o => `<object id="${o.id}" name="${o.name}" type="model" pid="1" pind
 <config>
   <object id="${top}">
     <metadata key="name" value="${esc(project.nom || "Lettrage")}"/>
-    <metadata key="extruder" value="${objs[0].pindex + 1}"/>
+    <metadata key="extruder" value="${objs[0].f}"/>
 ${objs.map(o => `    <part id="${o.id}" subtype="normal_part">
       <metadata key="name" value="${o.name}"/>
-      <metadata key="extruder" value="${o.pindex + 1}"/>
+      <metadata key="extruder" value="${o.f}"/>
     </part>`).join("\n")}
   </object>
 </config>`),
