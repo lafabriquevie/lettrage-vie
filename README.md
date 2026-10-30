@@ -20,6 +20,9 @@ Le script injecte les polices de `fonts/` en base64 dans le source et produit `l
 - **Plan de travail** vu de dessus : clic pour sélectionner, glisser pour déplacer (aimantation au centre), poignée ronde pour tourner (Maj = pas de 15°), poignée carrée pour agrandir. Molette ou pincement pour zoomer, glisser sur le vide pour déplacer la vue.
 - **Calques** : textes et lettres ou chiffres de fond, en nombre libre. L'ordre de la liste décide qui passe devant ; un texte placé plus bas dans la liste découpe les textes d'une autre couleur qui le recouvrent.
 - **Propriétés** de l'élément sélectionné : texte, police (aperçu dans la police), hauteur des majuscules, espacement, arc, relief, filament, position et rotation. Sans sélection : couleurs des 4 filaments et contour commun sous les textes.
+- **Formes et icônes** : rectangle, cercle ou ovale, cœur, nuage, étoile ; pieds de bébé, lune, horloge, règle, balance, couronne ; les 12 signes du zodiaque. Une forme sert de **support** (posée sur le plateau, comme une lettre de fond) ou est **en relief** (posée sur ce qu'elle recouvre, comme un texte). Hauteur, largeur (0 = proportions d'origine), arrondi des angles.
+- **Liseré** : bordure en relief qui suit le pourtour d'un support ou d'une lettre de fond, avec sa largeur, sa hauteur et son filament.
+- **Import SVG** : surfaces remplies et traits, transformations comprises. Le dessin est enregistré dans le projet. Une forme blanche posée sur une noire est fusionnée avec elle : seul le contour extérieur compte.
 - Contour et fonds peuvent avoir un **arrière creux** (parois, face avant pleine, fond arrière ouvert ou fermé). Les textes restent pleins.
 - **Annuler / rétablir** (Ctrl Z, Ctrl Maj Z), Suppr, Ctrl D pour dupliquer, flèches pour déplacer de 1 mm (10 mm avec Maj).
 - **Enregistrer / ouvrir** un projet en `.json`. Le dernier projet est aussi gardé dans le navigateur ; les réglages de l'ancienne version sont repris automatiquement.

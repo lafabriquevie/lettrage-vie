@@ -108,6 +108,20 @@ button { font: inherit; color: inherit; }
 .btn.primary { background: var(--accent); color: #041015; border-color: var(--accent); box-shadow: 0 0 18px #3fcfe044; }
 .btn.primary:hover:not(:disabled) { color: #041015; box-shadow: 0 0 24px #3fcfe088; }
 .btn.add { background: transparent; color: var(--accent); border: 1px dashed #3fcfe066; padding: 8px 6px; }
+.btn.add.wide { grid-column: span 2; }
+.shapebtn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--fg); border-radius: 3px; padding: 6px 9px; cursor: pointer; font: inherit; }
+.shapebtn svg { width: 34px; height: 34px; fill: var(--fg); flex: none; }
+.shapebtn:hover { border-color: var(--accent); }
+.picker-back { position: fixed; inset: 0; z-index: 60; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.picker { background: var(--panel); border: 1px solid var(--accent); border-radius: 4px; width: min(680px, 100%); max-height: 86vh; overflow: auto; padding: 14px 16px 18px; box-shadow: 0 20px 60px #000c; }
+.picker header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
+.picker header b { font-family: var(--font-display); letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--accent); }
+.picker h4 { margin: 14px 0 6px; font-family: var(--font-display); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.picker .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; }
+.picker .grid button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 8px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 3px; color: var(--fg); cursor: pointer; font: inherit; font-size: 11px; line-height: 1.2; text-align: center; }
+.picker .grid svg { width: 46px; height: 46px; fill: var(--fg); }
+.picker .grid button:hover, .picker .grid button:focus-visible, .picker .grid button[aria-selected="true"] { border-color: var(--accent); background: var(--accent-dim); }
+.picker .grid .imp { justify-content: center; color: var(--accent); border-style: dashed; font-size: 12px; }
 .btn.sm { padding: 6px 9px; font-size: 10.5px; }
 /* Champs */
 .group { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
@@ -190,7 +204,9 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
       <div class="add-row">
         <button type="button" class="btn add" id="add-texte">+ Texte</button>
         <button type="button" class="btn add" id="add-fond">+ Lettre de fond</button>
+        <button type="button" class="btn add wide" id="add-forme">+ Forme, icône ou SVG</button>
       </div>
+      <input type="file" id="file-svg" accept=".svg,image/svg+xml" hidden>
       <ul class="layer-list" id="layer-list" role="listbox" aria-label="Éléments du projet"></ul>
       <p class="hint">Clique un élément sur le plan pour le sélectionner. Glisse pour le déplacer, la poignée ronde le tourne, la poignée carrée l'agrandit. <span class="kbd">Maj</span> aimante la rotation par 15°.</p>
       <p class="hint"><span class="kbd">Suppr</span> supprime, <span class="kbd">Ctrl D</span> duplique, les flèches déplacent de 1 mm (10 mm avec <span class="kbd">Maj</span>).</p>
@@ -348,21 +364,281 @@ const FONT_DATA = /*FONTS*/[];
   }
   const centered = p => { const b = bounds(p); return b ? translate(p, -(b.x0 + b.x1) / 2, -(b.y0 + b.y1) / 2) : p; };
 
+  // ---------- Tracés SVG : formes de base, icônes, import ----------
+  // Un tracé « d » devient une liste de sous-tracés {pts: [[x, y]…], closed}, y vers le bas comme en SVG.
+  function parsePathD(d, m) {
+    const tok = String(d).match(/[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || [];
+    const subs = [];
+    let i = 0, cmd = "", x = 0, y = 0, sx = 0, sy = 0, cur = null, lc = null, lq = null;
+    const num = () => parseFloat(tok[i++]);
+    const isNum = () => i < tok.length && !/^[A-Za-z]$/.test(tok[i]);
+    const add = (px, py) => cur.pts.push([px, py]);
+    const start = (px, py) => { cur = { pts: [[px, py]], closed: false }; subs.push(cur); };
+    const curve = (pts, n) => { for (let k = 1; k <= n; k++) { const t = k / n, u = 1 - t;
+      if (pts.length === 3) add(u * u * pts[0][0] + 2 * u * t * pts[1][0] + t * t * pts[2][0], u * u * pts[0][1] + 2 * u * t * pts[1][1] + t * t * pts[2][1]);
+      else add(u * u * u * pts[0][0] + 3 * u * u * t * pts[1][0] + 3 * u * t * t * pts[2][0] + t * t * t * pts[3][0], u * u * u * pts[0][1] + 3 * u * u * t * pts[1][1] + 3 * u * t * t * pts[2][1] + t * t * t * pts[3][1]); } };
+    const arc = (rx, ry, phi, fa, fs, x2, y2) => {
+      // Conversion extrémités → centre (SVG 1.1, annexe F.6)
+      if (!rx || !ry) { add(x2, y2); return; }
+      rx = Math.abs(rx); ry = Math.abs(ry);
+      const p = phi * Math.PI / 180, cp = Math.cos(p), sp = Math.sin(p);
+      const dx = (x - x2) / 2, dy = (y - y2) / 2, x1p = cp * dx + sp * dy, y1p = -sp * dx + cp * dy;
+      const lam = x1p * x1p / (rx * rx) + y1p * y1p / (ry * ry);
+      if (lam > 1) { rx *= Math.sqrt(lam); ry *= Math.sqrt(lam); }
+      const num2 = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p;
+      const co = (fa === fs ? -1 : 1) * Math.sqrt(Math.max(0, num2 / (rx * rx * y1p * y1p + ry * ry * x1p * x1p)));
+      const cxp = co * rx * y1p / ry, cyp = -co * ry * x1p / rx;
+      const cx = cp * cxp - sp * cyp + (x + x2) / 2, cy = sp * cxp + cp * cyp + (y + y2) / 2;
+      const ang = (ux, uy, vx, vy) => Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);
+      const t1 = ang(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry);
+      let dt = ang((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+      if (!fs && dt > 0) dt -= 2 * Math.PI; else if (fs && dt < 0) dt += 2 * Math.PI;
+      const n = Math.max(2, Math.ceil(Math.abs(dt) / (Math.PI / 36)));
+      for (let k = 1; k <= n; k++) { const t = t1 + dt * k / n; add(cx + rx * Math.cos(t) * cp - ry * Math.sin(t) * sp, cy + rx * Math.cos(t) * sp + ry * Math.sin(t) * cp); }
+    };
+    while (i < tok.length) {
+      if (/^[A-Za-z]$/.test(tok[i])) cmd = tok[i++];
+      else if (!cmd) { i++; continue; }
+      const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase();
+      const ox = rel ? x : 0, oy = rel ? y : 0;
+      if (C === "Z") { if (cur) { cur.closed = true; x = sx; y = sy; } cur = null; lc = lq = null; continue; }
+      if (!isNum()) { cmd = ""; continue; }
+      if (!cur && C !== "M") start(x, y);
+      if (C === "M") { x = ox + num(); y = oy + num(); sx = x; sy = y; start(x, y); cmd = rel ? "l" : "L"; lc = lq = null; continue; }
+      if (C === "L") { x = ox + num(); y = oy + num(); add(x, y); lc = lq = null; }
+      else if (C === "H") { x = ox + num(); add(x, y); lc = lq = null; }
+      else if (C === "V") { y = oy + num(); add(x, y); lc = lq = null; }
+      else if (C === "C" || C === "S") {
+        let c1;
+        if (C === "C") c1 = [ox + num(), oy + num()]; else c1 = lc ? [2 * x - lc[0], 2 * y - lc[1]] : [x, y];
+        const c2 = [ox + num(), oy + num()], e = [ox + num(), oy + num()];
+        curve([[x, y], c1, c2, e], 16); lc = c2; lq = null; [x, y] = e;
+      } else if (C === "Q" || C === "T") {
+        let c1;
+        if (C === "Q") c1 = [ox + num(), oy + num()]; else c1 = lq ? [2 * x - lq[0], 2 * y - lq[1]] : [x, y];
+        const e = [ox + num(), oy + num()];
+        curve([[x, y], c1, e], 12); lq = c1; lc = null; [x, y] = e;
+      } else if (C === "A") {
+        const rx = num(), ry = num(), phi = num(), fa = num(), fs = num(), x2 = ox + num(), y2 = oy + num();
+        arc(rx, ry, phi, fa, fs, x2, y2); x = x2; y = y2; lc = lq = null;
+      } else i++;
+    }
+    if (m) for (const s of subs) s.pts = s.pts.map(([px, py]) => [m[0] * px + m[2] * py + m[4], m[1] * px + m[3] * py + m[5]]);
+    return subs.filter(s => s.pts.length > 1);
+  }
+  const SU = 100; // unités Clipper par unité de dessin, avant la mise à l'échelle finale
+  const subToClip = s => s.pts.map(([x, y]) => ({ X: Math.round(x * SU), Y: Math.round(-y * SU) }));
+  function fillSubs(subs, evenodd) {
+    const polys = subs.filter(s => s.pts.length > 2).map(subToClip);
+    if (!polys.length) return [];
+    const ft = evenodd ? CL.PolyFillType.pftEvenOdd : NZ;
+    const c = new CL.Clipper(); c.AddPaths(polys, CL.PolyType.ptSubject, true);
+    const out = new CL.Paths(); c.Execute(CL.ClipType.ctUnion, out, ft, ft);
+    return out;
+  }
+  function strokeSubs(subs, w) {
+    if (!subs.length || !(w > 0)) return [];
+    const co = new CL.ClipperOffset(2, 0.05 * SU);
+    for (const s of subs) co.AddPath(subToClip(s), CL.JoinType.jtRound, s.closed ? CL.EndType.etClosedLine : CL.EndType.etOpenRound);
+    const out = new CL.Paths(); co.Execute(out, w / 2 * SU);
+    return out;
+  }
+  const circ = (cx, cy, r) => `M${cx - r} ${cy}A${r} ${r} 0 1 0 ${cx + r} ${cy}A${r} ${r} 0 1 0 ${cx - r} ${cy}Z`;
+  // Icône décrite en SVG dans une boîte de 100 : surfaces pleines, traits épaissis, trous
+  function drawIcon(def) {
+    let p = union([...fillSubs(parsePathD(def.fill || ""), false), ...strokeSubs(parsePathD(def.stroke || ""), def.sw || 6)]);
+    if (def.holes) p = diff(p, fillSubs(parsePathD(def.holes), true));
+    return p;
+  }
+  const PIED = "M30 36C40 34 47 40 46 50C45 58 42 64 43 74C44 86 40 95 32 95C22 95 17 84 16 70C15 56 18 38 30 36Z" +
+    circ(41, 29, 5.5) + circ(32.5, 25.5, 4.2) + circ(25, 26.5, 3.6) + circ(19, 30.5, 3.1) + circ(15, 36.5, 2.6);
+  const ZS = 7; // épaisseur des traits du zodiaque
+  const FORMES = {
+    rect: { nom: "Rectangle", cat: "Formes de base", base: true },
+    ovale: { nom: "Cercle / ovale", cat: "Formes de base", base: true },
+    coeur: { nom: "Cœur", cat: "Formes de base", base: true, fill: "M50 92C22 72 4 54 4 32C4 16 16 6 29 6C39 6 46 12 50 20C54 12 61 6 71 6C84 6 96 16 96 32C96 54 78 72 50 92Z" },
+    nuage: { nom: "Nuage", cat: "Formes de base", base: true, fill: [[20, 64, 14], [40, 68, 16], [62, 68, 16], [82, 64, 14], [30, 46, 16], [52, 36, 22], [74, 46, 16]].map(c => circ(...c)).join("") + "M20 64L30 46L52 36L74 46L82 64L62 68L40 68Z" },
+    etoile: { nom: "Étoile", cat: "Formes de base", base: true },
+    pieds: { nom: "Pieds de bébé", cat: "Naissance", gen: () => union([...fillSubs(parsePathD(PIED), false), ...fillSubs(parsePathD(PIED, [-1, 0, 0, 1, 100, -10]), false)]) },
+    lune: { nom: "Lune", cat: "Naissance", gen: () => diff(fillSubs(parsePathD(circ(50, 50, 42))), fillSubs(parsePathD(circ(68, 38, 36)))) },
+    horloge: { nom: "Horloge", cat: "Naissance", stroke: circ(50, 50, 42) + "M50 50L50 22M50 50L69 61", sw: 5.5,
+      fill: circ(50, 50, 5) + Array.from({ length: 12 }, (_, k) => circ(50 + 32 * Math.sin(k * Math.PI / 6), 50 - 32 * Math.cos(k * Math.PI / 6), k % 3 ? 2.2 : 3.4)).join("") },
+    regle: { nom: "Règle", cat: "Naissance", fill: "M2 32H98V68H2Z",
+      holes: Array.from({ length: 11 }, (_, k) => { const x = 7 + k * 8.6; return `M${x} 30H${x + 2.4}V${32 + (k % 5 ? 10 : 18)}H${x}Z`; }).join("") },
+    balance: { nom: "Balance", cat: "Naissance", stroke: "M50 92V18M12 30H88M12 30L3 58M12 30L21 58M88 30L79 58M88 30L97 58", sw: 4,
+      fill: circ(50, 14, 6) + "M0 58H24C24 66 18 72 12 72C6 72 0 66 0 58Z" + "M76 58H100C100 66 94 72 88 72C82 72 76 66 76 58Z" + "M32 88H68V96H32Z" },
+    couronne: { nom: "Couronne", cat: "Naissance", fill: "M10 82L14 32L32 54L50 22L68 54L86 32L90 82Z" + "M10 86H90V96H10Z" + circ(14, 28, 5) + circ(50, 17, 6) + circ(86, 28, 5) },
+    belier: { nom: "Bélier", cat: "Zodiaque", sw: ZS, stroke: "M50 90V45C50 20 40 10 28 10C16 10 10 20 10 30C10 40 18 46 24 44M50 45C50 20 60 10 72 10C84 10 90 20 90 30C90 40 82 46 76 44" },
+    taureau: { nom: "Taureau", cat: "Zodiaque", sw: ZS, stroke: circ(50, 64, 24) + "M10 12C18 34 32 40 50 40C68 40 82 34 90 12" },
+    gemeaux: { nom: "Gémeaux", cat: "Zodiaque", sw: ZS, stroke: "M14 12C38 22 62 22 86 12M14 88C38 78 62 78 86 88M36 19V81M64 19V81" },
+    cancer: { nom: "Cancer", cat: "Zodiaque", sw: ZS, stroke: circ(30, 38, 11) + "M30 27C52 14 76 18 90 34" + circ(70, 62, 11) + "M70 73C48 86 24 82 10 66" },
+    lion: { nom: "Lion", cat: "Zodiaque", sw: ZS, stroke: circ(28, 64, 13) + "M41 64C41 44 34 34 40 22C46 10 66 8 72 20C78 32 64 44 64 62C64 80 74 92 90 84" },
+    vierge: { nom: "Vierge", cat: "Zodiaque", sw: ZS, stroke: "M10 22C16 18 22 22 22 30V86M22 34C22 22 40 22 40 34V86M40 34C40 22 58 22 58 34V74C58 88 70 92 82 82M58 58C66 46 88 48 86 64C84 78 68 84 56 92" },
+    balanceZ: { nom: "Balance", cat: "Zodiaque", sw: ZS, stroke: "M10 86H90M10 70H32C24 60 26 34 50 34C74 34 76 60 68 70H90" },
+    scorpion: { nom: "Scorpion", cat: "Zodiaque", sw: ZS, stroke: "M8 22C14 18 20 22 20 30V82M20 34C20 22 38 22 38 34V82M38 34C38 22 56 22 56 34V74C56 86 64 88 74 84L90 78M78 68L90 78L82 90" },
+    sagittaire: { nom: "Sagittaire", cat: "Zodiaque", sw: ZS, stroke: "M14 86L84 16M52 16H84V48M30 46L54 70" },
+    capricorne: { nom: "Capricorne", cat: "Zodiaque", sw: ZS, stroke: "M8 18L24 74L38 18V64C38 86 66 92 74 76C82 60 64 48 54 60C46 70 52 86 40 94" },
+    verseau: { nom: "Verseau", cat: "Zodiaque", sw: ZS, stroke: "M8 42L25 28L42 42L58 28L75 42L92 28M8 76L25 62L42 76L58 62L75 76L92 62" },
+    poissons: { nom: "Poissons", cat: "Zodiaque", sw: ZS, stroke: "M22 10C46 30 46 70 22 90M78 10C54 30 54 70 78 90M16 50H84" },
+  };
+  // Forme dans ses propres unités (y vers le haut), avant mise à l'échelle
+  const unitCache = new Map();
+  function formeUnit(key, svg) {
+    if (key === "svg") return svg && Array.isArray(svg.paths) ? svg.paths.map(a => { const p = []; for (let k = 0; k + 1 < a.length; k += 2) p.push({ X: a[k], Y: a[k + 1] }); return p; }) : [];
+    if (!unitCache.has(key)) {
+      const def = FORMES[key] || FORMES.coeur;
+      let u = def.gen ? def.gen() : drawIcon(def);
+      if (def.base) u = u.filter(q => CL.Clipper.Area(q) > 0); // un support n'a pas de trous
+      unitCache.set(key, u);
+    }
+    return unitCache.get(key);
+  }
+  function starPaths(n, w, h) {
+    const p = [];
+    for (let k = 0; k < 2 * n; k++) {
+      const a = Math.PI / 2 + k * Math.PI / n, r = k % 2 ? 0.48 : 1;
+      p.push({ X: Math.round(Math.cos(a) * r * w / 2), Y: Math.round(Math.sin(a) * r * h / 2) });
+    }
+    return [p];
+  }
+  // Forme en unités Clipper (mm × S), centrée, aux dimensions demandées
+  function formePaths(e) {
+    const H = e.taille * S;
+    let p;
+    if (e.forme === "rect") {
+      const W = (e.largeur > 0 ? e.largeur : e.taille) * S;
+      p = [[{ X: -W / 2, Y: -H / 2 }, { X: W / 2, Y: -H / 2 }, { X: W / 2, Y: H / 2 }, { X: -W / 2, Y: H / 2 }]];
+    } else if (e.forme === "ovale") {
+      const W = (e.largeur > 0 ? e.largeur : e.taille) * S, n = 160;
+      p = [Array.from({ length: n }, (_, k) => ({ X: Math.round(Math.cos(2 * Math.PI * k / n) * W / 2), Y: Math.round(Math.sin(2 * Math.PI * k / n) * H / 2) }))];
+    } else if (e.forme === "etoile") {
+      const n = clamp(Math.round(e.branches) || 5, 3, 12);
+      const raw = starPaths(n, 1000, 1000), b = bounds(raw);
+      const W = e.largeur > 0 ? e.largeur * S : H * b.w / b.h;
+      p = starPaths(n, 1000 * W / b.w, 1000 * H / b.h);
+    } else {
+      const u = formeUnit(e.forme, e.svg), b = bounds(u);
+      if (!b || !b.h || !b.w) return [];
+      const W = e.largeur > 0 ? e.largeur * S : H * b.w / b.h;
+      const kx = W / b.w, ky = H / b.h;
+      p = u.map(q => q.map(v => ({ X: Math.round((v.X - b.x0) * kx), Y: Math.round((v.Y - b.y0) * ky) })));
+      }
+    // Fermeture de 0,02 mm : soude les parties qui se touchent en un point (sinon l'extrusion n'est pas étanche)
+    p = centered(offset(offset(union(p), 0.02), -0.02));
+    if (e.coin > 0) p = offset(offset(p, -e.coin), e.coin);
+    return p;
+  }
+  // Aperçu SVG d'une liste de contours Clipper
+  function thumbSvg(paths) {
+    const b = bounds(paths);
+    if (!b) return "";
+    const pad = Math.max(b.w, b.h) * 0.06;
+    const d = paths.map(p => "M" + p.map(q => `${q.X - b.x0 + pad | 0} ${b.y1 - q.Y + pad | 0}`).join("L") + "Z").join("");
+    return `<svg viewBox="0 0 ${b.w + 2 * pad | 0} ${b.h + 2 * pad | 0}" aria-hidden="true"><path d="${d}"/></svg>`;
+  }
+
+  // Import d'un fichier SVG : surfaces remplies et traits, transformations comprises
+  function importSvg(text) {
+    const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+    const root = doc.documentElement;
+    if (!root || root.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) throw new Error("fichier SVG illisible");
+    const mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
+    function parseTransform(t) {
+      let m = [1, 0, 0, 1, 0, 0];
+      const re = /(matrix|translate|scale|rotate|skewX|skewY)\s*\(([^)]*)\)/g;
+      let r;
+      while ((r = re.exec(t || ""))) {
+        const v = (r[2].match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || []).map(Number);
+        let n = [1, 0, 0, 1, 0, 0];
+        if (r[1] === "matrix" && v.length === 6) n = v;
+        else if (r[1] === "translate") n = [1, 0, 0, 1, v[0] || 0, v[1] || 0];
+        else if (r[1] === "scale") n = [v[0] ?? 1, 0, 0, v[1] ?? v[0] ?? 1, 0, 0];
+        else if (r[1] === "rotate") {
+          const a = (v[0] || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), cx = v[1] || 0, cy = v[2] || 0;
+          n = [c, s, -s, c, cx - c * cx + s * cy, cy - s * cx - c * cy];
+        } else if (r[1] === "skewX") n = [1, 0, Math.tan((v[0] || 0) * Math.PI / 180), 1, 0, 0];
+        else if (r[1] === "skewY") n = [1, Math.tan((v[0] || 0) * Math.PI / 180), 0, 1, 0, 0];
+        m = mul(m, n);
+      }
+      return m;
+    }
+    const styleOf = (el, k) => {
+      const st = (el.getAttribute("style") || "").match(new RegExp("(?:^|;)\\s*" + k + "\\s*:\\s*([^;]+)"));
+      return st ? st[1].trim() : el.getAttribute(k);
+    };
+    const items = []; // {subs, fill, evenodd, stroke, sw}
+    const nums = s => (String(s || "").match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || []).map(Number);
+    function walk(el, m, inh) {
+      const tag = el.nodeName.toLowerCase().replace(/^svg:/, "");
+      if (/^(defs|clippath|mask|symbol|style|title|desc|metadata|pattern|lineargradient|radialgradient|text)$/.test(tag)) return;
+      const mm = el.getAttribute && el.getAttribute("transform") ? mul(m, parseTransform(el.getAttribute("transform"))) : m;
+      const st = { ...inh };
+      for (const k of ["fill", "stroke", "stroke-width", "fill-rule", "display", "visibility"]) { const v = el.getAttribute ? styleOf(el, k) : null; if (v != null) st[k] = v; }
+      if (st.display === "none" || st.visibility === "hidden") return;
+      const a = k => parseFloat(el.getAttribute(k)) || 0;
+      let d = null;
+      if (tag === "path") d = el.getAttribute("d");
+      else if (tag === "rect") {
+        const x = a("x"), y = a("y"), w = a("width"), h = a("height");
+        let rx = a("rx"), ry = a("ry"); if (!rx) rx = ry; if (!ry) ry = rx; rx = Math.min(rx, w / 2); ry = Math.min(ry, h / 2);
+        d = rx ? `M${x + rx} ${y}H${x + w - rx}A${rx} ${ry} 0 0 1 ${x + w} ${y + ry}V${y + h - ry}A${rx} ${ry} 0 0 1 ${x + w - rx} ${y + h}H${x + rx}A${rx} ${ry} 0 0 1 ${x} ${y + h - ry}V${y + ry}A${rx} ${ry} 0 0 1 ${x + rx} ${y}Z` : `M${x} ${y}H${x + w}V${y + h}H${x}Z`;
+      } else if (tag === "circle" || tag === "ellipse") {
+        const cx = a("cx"), cy = a("cy"), rx = tag === "circle" ? a("r") : a("rx"), ry = tag === "circle" ? a("r") : a("ry");
+        d = `M${cx - rx} ${cy}A${rx} ${ry} 0 1 0 ${cx + rx} ${cy}A${rx} ${ry} 0 1 0 ${cx - rx} ${cy}Z`;
+      } else if (tag === "line") d = `M${a("x1")} ${a("y1")}L${a("x2")} ${a("y2")}`;
+      else if (tag === "polyline" || tag === "polygon") { const v = nums(el.getAttribute("points")); if (v.length >= 4) d = "M" + v.join(" ") + (tag === "polygon" ? "Z" : ""); }
+      if (d) {
+        const fill = (st.fill || "black").toLowerCase(), stroke = (st.stroke || "none").toLowerCase();
+        const sw = (parseFloat(st["stroke-width"]) || 1) * Math.sqrt(Math.abs(mm[0] * mm[3] - mm[1] * mm[2]));
+        items.push({ subs: parsePathD(d, mm), fill: fill !== "none" && fill !== "transparent", evenodd: st["fill-rule"] === "evenodd", stroke: stroke !== "none" && stroke !== "transparent", sw });
+      }
+      for (const c of el.children || []) walk(c, mm, st);
+    }
+    walk(root, [1, 0, 0, 1, 0, 0], {});
+    // Mise à l'échelle dans une boîte de 1000 avant passage en entiers
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const it of items) for (const s of it.subs) for (const [x, y] of s.pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    if (x0 === Infinity) throw new Error("aucune forme trouvée dans le SVG");
+    const k = 1000 / Math.max(x1 - x0, y1 - y0, 1e-9);
+    let out = [];
+    for (const it of items) {
+      for (const s of it.subs) s.pts = s.pts.map(([x, y]) => [(x - x0) * k, (y - y0) * k]);
+      if (it.fill) out.push(...fillSubs(it.subs, it.evenodd));
+      if (it.stroke) out.push(...strokeSubs(it.subs, it.sw * k));
+    }
+    out = union(out);
+    // Allègement : on vise moins de 12 000 points
+    for (let tol = 20; out.reduce((n, p) => n + p.length, 0) > 12000 && tol < 2000; tol *= 2) out = CL.Clipper.CleanPolygons(out, tol);
+    out = out.filter(p => p.length > 2);
+    if (!out.length) throw new Error("aucune surface exploitable dans le SVG");
+    return out.map(p => p.flatMap(q => [q.X, q.Y]));
+  }
+
   // ---------- Modèle ----------
   const TYPES = {
     texte: { nom: "Texte" },
     fond: { nom: "Lettre de fond" },
+    forme: { nom: "Forme" },
   };
+  const LISERE = { lisere: false, lis_largeur: 2, lis_relief: 1, lis_filament: 2 };
   let seq = 1;
   const uid = () => "e" + (seq++).toString(36) + Math.random().toString(36).slice(2, 6);
   function newTexte(d) {
     return { id: uid(), type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
-      relief: 1.2, contour: true, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
+      relief: 1.2, contour: true, support: 0, sup_largeur: 0, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   function newFond(d) {
     return { id: uid(), type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
+      ...LISERE, filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
+  }
+  // Forme : support (posé sur le plateau, comme une lettre de fond) ou relief (posé dessus, comme un texte)
+  function newForme(d) {
+    return { id: uid(), type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
+      epaisseur: 3, relief: 1.2, contour: false, support: 0, sup_largeur: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
       filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
+  const isSocle = e => e.type === "fond" || (e.type === "forme" && e.pose !== "relief");
+  const labelOf = e => e.type !== "forme" ? (e.texte || "(vide)") : e.forme === "svg" ? ((e.svg && e.svg.nom) || "SVG importé") : (FORMES[e.forme] || {}).nom || "Forme";
   function defaultContour() {
     return { actif: true, epaisseur: 3, largeur: 1.6, lissage: 1, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, filament: 1 };
   }
@@ -391,10 +667,20 @@ const FONT_DATA = /*FONTS*/[];
       elements: [] };
     for (const e of Array.isArray(p.elements) ? p.elements.slice(0, 60) : []) {
       if (!e || !TYPES[e.type]) continue;
-      const n = e.type === "texte" ? newTexte(e) : newFond(e);
+      const n = e.type === "texte" ? newTexte(e) : e.type === "fond" ? newFond(e) : newForme(e);
       n.id = uid();
-      if (!FONTS[n.police]) n.police = e.type === "texte" ? "Pacifico|400" : "Nunito|900";
-      n.texte = String(n.texte || "").slice(0, 80);
+      if (n.type === "forme") {
+        if (n.forme === "svg") {
+          const ok = n.svg && Array.isArray(n.svg.paths) && n.svg.paths.every(a => Array.isArray(a) && a.every(v => Number.isFinite(v)));
+          if (!ok) continue;
+          n.svg = { id: String(n.svg.id || uid()), nom: String(n.svg.nom || "SVG importé").slice(0, 60), paths: n.svg.paths };
+        } else if (!FORMES[n.forme]) n.forme = "coeur";
+        n.pose = n.pose === "relief" ? "relief" : "socle";
+      } else {
+        if (!FONTS[n.police]) n.police = e.type === "texte" ? "Pacifico|400" : "Nunito|900";
+        n.texte = String(n.texte || "").slice(0, 80);
+      }
+      n.lis_filament = clamp(Math.round(+n.lis_filament) || 2, 1, 4);
       n.filament = clamp(Math.round(+n.filament) || 1, 1, 4);
       out.elements.push(n);
     }
@@ -440,10 +726,15 @@ const FONT_DATA = /*FONTS*/[];
   // ---------- Formes locales (cache) et formes placées ----------
   const localCache = new Map();
   function localShape(e) {
-    const key = e.type === "texte"
-      ? ["t", e.texte, e.police, e.taille, e.espacement, e.rayon, e.sens].join("|")
+    const key = e.type === "texte" ? ["t", e.texte, e.police, e.taille, e.espacement, e.rayon, e.sens].join("|")
+      : e.type === "forme" ? ["s", e.forme, e.svg ? e.svg.id : "", e.taille, e.largeur, e.coin, e.branches].join("|")
       : ["f", e.texte, e.police, e.taille].join("|");
     let v = localCache.get(key);
+    if (!v && e.type === "forme") {
+      v = formePaths(e);
+      if (localCache.size > 300) localCache.clear();
+      localCache.set(key, v);
+    }
     if (!v) {
       const t = String(e.texte || "").trim();
       let p = t ? centered(textPaths(t, e.police, e.taille, e.type === "texte" ? e.espacement : 0)) : [];
@@ -487,16 +778,30 @@ const FONT_DATA = /*FONTS*/[];
       for (const r of field) if (r.h > h && inter(paths, r.paths).length) h = r.h;
       return h;
     };
-    const fonds = els.filter(e => e.type === "fond");
-    const textes = els.filter(e => e.type === "texte");
+    const socles = els.filter(isSocle);
+    const textes = els.filter(e => !isSocle(e)); // textes et formes en relief
     const shapes = new Map(els.map(e => [e.id, placed(e)]));
-    for (const e of fonds) place(shapes.get(e.id), e.epaisseur, e.filament, e.arriere === "creux" ? e : null);
+    for (const e of socles) {
+      const sh = shapes.get(e.id);
+      place(sh, e.epaisseur, e.filament, e.arriere === "creux" ? e : null);
+      // Liseré : bordure en relief qui suit le pourtour du support
+      if (e.lisere && e.lis_largeur > 0) place(diff(sh, offset(sh, -e.lis_largeur)), e.epaisseur + e.lis_relief, e.lis_filament, null);
+    }
     const c = pr.contour;
     let contourPaths = [];
     if (c.actif) {
-      const u = union(textes.filter(e => e.contour).flatMap(e => shapes.get(e.id)));
-      if (u.length) contourPaths = offset(offset(u, c.lissage + c.largeur), -c.lissage);
-      place(contourPaths, c.epaisseur, c.filament, c.arriere === "creux" ? c : null);
+      // Un texte peut avoir sa propre hauteur de contour (support) ; les plus bas d'abord, les plus hauts s'empilent dessus
+      const members = textes.filter(e => e.contour);
+      const hOf = e => (e.support > 0 ? e.support : c.epaisseur);
+      const wOf = e => (e.sup_largeur > 0 ? e.sup_largeur : c.largeur);
+      const groups = [...new Set(members.map(e => hOf(e) + "|" + wOf(e)))].map(k => k.split("|").map(Number)).sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+      for (const [h, w] of groups) {
+        const u = union(members.filter(e => hOf(e) === h && wOf(e) === w).flatMap(e => shapes.get(e.id)));
+        if (!u.length) continue;
+        const cp = offset(offset(u, c.lissage + w), -c.lissage);
+        contourPaths.push(...cp);
+        place(cp, h, c.filament, c.arriere === "creux" ? c : null);
+      }
     }
     // Les textes se posent sur les fonds et le contour, pas les uns sur les autres ;
     // à filaments différents, le texte du dessus (plus bas dans la liste) l'emporte.
@@ -518,6 +823,7 @@ const FONT_DATA = /*FONTS*/[];
   // ---------- Extrusion ----------
   function toShapes(paths) {
     const c = new CL.Clipper();
+    c.StrictlySimple = true; // pas de contours qui se touchent en un point : sinon l'extrusion n'est pas étanche
     c.AddPaths(paths, CL.PolyType.ptSubject, true);
     const tree = new CL.PolyTree();
     c.Execute(CL.ClipType.ctUnion, tree, NZ, NZ);
@@ -743,7 +1049,7 @@ const FONT_DATA = /*FONTS*/[];
     }
     if (h) {
       const e = h.e;
-      drag = { kind: h.kind, id: e.id, wx, wy, x0: e.x, y0: e.y, rot0: e.rot, taille0: e.taille,
+      drag = { kind: h.kind, id: e.id, wx, wy, x0: e.x, y0: e.y, rot0: e.rot, taille0: e.taille, largeur0: e.largeur || 0,
         a0: Math.atan2(wy - e.y, wx - e.x), d0: Math.max(1, Math.hypot(wx - e.x, wy - e.y)) };
       plan.className = "move";
     } else {
@@ -790,6 +1096,7 @@ const FONT_DATA = /*FONTS*/[];
     } else if (drag.kind === "scale") {
       const k = Math.hypot(wx - e.x, wy - e.y) / drag.d0;
       e.taille = clamp(Math.round(drag.taille0 * k * 2) / 2, 2, 250);
+      if (drag.largeur0 > 0) e.largeur = clamp(Math.round(drag.largeur0 * e.taille / drag.taille0 * 2) / 2, 2, 250);
     }
     liveUpdate();
   });
@@ -862,14 +1169,14 @@ const FONT_DATA = /*FONTS*/[];
     layerList.innerHTML = rows.map(({ e, i }) => `
       <li class="layer${e.visible === false ? " off" : ""}" role="option" aria-selected="${e.id === selected}" data-id="${e.id}" tabindex="0">
         <span class="sw" style="background:${project.filaments[e.filament - 1]}"></span>
-        <span class="nm">${esc(e.texte || "(vide)")}<small>${TYPES[e.type].nom} · F${e.filament}</small></span>
+        <span class="nm">${esc(labelOf(e))}<small>${e.type === "forme" ? (e.pose === "relief" ? "Forme en relief" : "Support") : TYPES[e.type].nom} · F${e.filament}</small></span>
         <span class="acts">
           <button type="button" class="ico" data-act="vis" title="${e.visible === false ? "Afficher" : "Masquer"}" aria-label="${e.visible === false ? "Afficher" : "Masquer"}">${e.visible === false ? "○" : "●"}</button>
           <button type="button" class="ico" data-act="up" title="Monter" aria-label="Monter" ${i === els.length - 1 ? "disabled" : ""}>↑</button>
           <button type="button" class="ico" data-act="down" title="Descendre" aria-label="Descendre" ${i === 0 ? "disabled" : ""}>↓</button>
           <button type="button" class="ico danger" data-act="del" title="Supprimer" aria-label="Supprimer">✕</button>
         </span>
-      </li>`).join("") || `<li class="hint">Aucun élément. Ajoute un texte ou une lettre de fond.</li>`;
+      </li>`).join("") || `<li class="hint">Aucun élément. Ajoute un texte, une lettre ou une forme.</li>`;
   }
   layerList.addEventListener("click", ev => {
     const li = ev.target.closest(".layer");
@@ -924,6 +1231,64 @@ const FONT_DATA = /*FONTS*/[];
     selected = project.elements[0].id;
     changed(true);
   });
+  // Sélecteur de formes et d'icônes ; avec une forme en cours, il la remplace au lieu d'en ajouter une
+  let pickerTarget = null;
+  function closePicker() { const b = document.querySelector(".picker-back"); if (b) b.remove(); }
+  function openPicker(target) {
+    closePicker();
+    pickerTarget = target && target.type === "forme" ? target : null;
+    const cats = [...new Set(Object.values(FORMES).map(f => f.cat))];
+    const thumbs = key => thumbSvg(formePaths(newForme({ forme: key, taille: 30, largeur: key === "rect" ? 45 : 0 })));
+    const back = document.createElement("div");
+    back.className = "picker-back";
+    back.innerHTML = `<div class="picker" role="dialog" aria-modal="true" aria-label="Choisir une forme">
+      <header><b>${pickerTarget ? "Changer la forme" : "Ajouter une forme"}</b><button type="button" class="btn sm" data-close>Fermer</button></header>
+      ${cats.map(c => `<h4>${c}</h4><div class="grid">${Object.entries(FORMES).filter(([, f]) => f.cat === c).map(([k, f]) =>
+        `<button type="button" data-forme="${k}" aria-selected="${pickerTarget && pickerTarget.forme === k}">${thumbs(k)}<span>${esc(f.nom)}</span></button>`).join("")}</div>`).join("")}
+      <h4>Ton dessin</h4><div class="grid"><button type="button" class="imp" data-import>Importer un fichier SVG…</button></div>
+    </div>`;
+    document.body.appendChild(back);
+    back.addEventListener("click", ev => {
+      if (ev.target === back || ev.target.closest("[data-close]")) { closePicker(); return; }
+      if (ev.target.closest("[data-import]")) { closePicker(); document.getElementById("file-svg").click(); return; }
+      const b = ev.target.closest("[data-forme]");
+      if (!b) return;
+      closePicker();
+      setForme(b.dataset.forme, null);
+    });
+    const first = back.querySelector('[aria-selected="true"]') || back.querySelector("[data-forme]");
+    if (first) first.focus();
+  }
+  function setForme(key, svg) {
+    const base = key !== "svg" && FORMES[key].base;
+    if (pickerTarget && project.elements.includes(pickerTarget)) {
+      Object.assign(pickerTarget, { forme: key, svg, largeur: key === "rect" ? Math.round(pickerTarget.taille * 1.5) : 0 });
+      selected = pickerTarget.id;
+      changed(true);
+      return;
+    }
+    const e = newForme(base
+      ? { forme: key, taille: 60, largeur: key === "rect" ? 90 : 0, coin: key === "rect" ? 6 : 0, pose: "socle", filament: 1, x: view.cx, y: view.cy }
+      : { forme: key, svg, taille: 20, pose: "relief", filament: 2, x: view.cx, y: view.cy });
+    e.x = Math.round(e.x); e.y = Math.round(e.y);
+    if (base) { project.elements.unshift(e); selected = e.id; changed(true); }
+    else addElement(e);
+  }
+  document.getElementById("add-forme").addEventListener("click", () => openPicker(null));
+  document.getElementById("file-svg").addEventListener("change", ev => {
+    const f = ev.target.files[0];
+    ev.target.value = "";
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const paths = importSvg(String(r.result));
+        setForme("svg", { id: uid(), nom: f.name.replace(/\.svg$/i, "").slice(0, 60), paths });
+        flash(`${f.name} importé.`);
+      } catch (err) { flash("Import impossible : " + err.message, true); }
+    };
+    r.readAsText(f);
+  });
   function select(id) {
     selected = id;
     renderLayers(); renderProps(); queuePlan();
@@ -942,8 +1307,26 @@ const FONT_DATA = /*FONTS*/[];
     <label class="field"><span>${label}</span>
       <span class="num"><input type="range" id="r-${id}" data-k="${id}" min="${min}" max="${max}" step="${step}" value="${v}">
         <span class="u" data-u="${unit}"><input type="number" id="n-${id}" data-k="${id}" min="${min}" max="${max}" step="${step}" value="${v}"></span></span></label>`;
-  const filCtl = cur => `<div class="field"><span>Filament AMS</span><div class="fil" role="group" aria-label="Filament">${project.filaments.map((c, i) =>
-    `<button type="button" data-fil="${i + 1}" aria-pressed="${cur === i + 1}" style="background:${c}" aria-label="Filament ${i + 1}">${i + 1}</button>`).join("")}</div></div>`;
+  const filCtl = (cur, k = "filament", label = "Filament AMS") => `<div class="field"><span>${label}</span><div class="fil" role="group" aria-label="${label}">${project.filaments.map((c, i) =>
+    `<button type="button" data-fil="${i + 1}" data-filk="${k}" aria-pressed="${cur === i + 1}" style="background:${c}" aria-label="Filament ${i + 1}">${i + 1}</button>`).join("")}</div></div>`;
+  // Contour sous un texte ou une forme en relief : inclusion et hauteur propre
+  const supportCtl = (e, nom) => {
+    const c = project.contour;
+    return `<label class="switch"><input type="checkbox" data-k="contour" ${e.contour ? "checked" : ""}><span>${nom} posé${nom === "Forme" ? "e" : ""} sur un contour (support)</span></label>
+      <div ${e.contour ? "" : "hidden"} style="display:flex;flex-direction:column;gap:8px">
+        ${c.actif ? numCtl("support", `Hauteur du support (0 = commune, ${c.epaisseur} mm)`, e.support || 0, 0, 60, 0.2, "mm")
+            + numCtl("sup_largeur", `Largeur autour des lettres (0 = commune, ${c.largeur} mm)`, e.sup_largeur || 0, 0, 15, 0.1, "mm")
+          : `<p class="hint">Le contour est désactivé pour tout le projet.</p><button type="button" class="btn sm" data-do="contour-on">Activer le contour</button>`}
+        <p class="hint">Arrondi et filament du contour : dans les réglages du projet (clic sur une zone vide du plan).</p>
+      </div>`;
+  };
+  const lisereCtl = e => `
+        <div class="group"><h3>Liseré</h3>
+          <label class="switch"><input type="checkbox" data-k="lisere" ${e.lisere ? "checked" : ""}><span>Bordure en relief sur le pourtour</span></label>
+          <div ${e.lisere ? "" : "hidden"} style="display:flex;flex-direction:column;gap:10px">
+            <div class="row">${numCtl("lis_largeur", "Largeur", e.lis_largeur, 0.6, 15, 0.2, "mm")}${numCtl("lis_relief", "Hauteur", e.lis_relief, 0.2, 20, 0.2, "mm")}</div>
+            ${filCtl(e.lis_filament, "lis_filament", "Filament du liseré")}
+          </div></div>`;
   const segCtl = (k, label, v, opts) => `<div class="field"><span>${label}</span><div class="seg" role="group">${opts.map(([val, txt]) =>
     `<button type="button" data-seg="${k}" data-v="${val}" aria-pressed="${v === val}">${txt}</button>`).join("")}</div></div>`;
   const fontCtl = cur => {
@@ -976,14 +1359,15 @@ const FONT_DATA = /*FONTS*/[];
           </div></div>`;
       return;
     }
-    propsTitle.innerHTML = `${TYPES[e.type].nom} <small>F${e.filament}</small>`;
+    propsTitle.innerHTML = `${e.type === "forme" ? esc(labelOf(e)) : TYPES[e.type].nom} <small>F${e.filament}</small>`;
     const common = `
       <div class="group"><h3>Position</h3>
         <div class="row">${numCtl("x", "X", e.x, -150, 150, 0.5, "mm")}${numCtl("y", "Y", e.y, -150, 150, 0.5, "mm")}</div>
         ${numCtl("rot", "Rotation", e.rot, -180, 180, 1, "°")}
         <div class="row"><button type="button" class="btn sm" data-do="center">Centrer</button><button type="button" class="btn sm" data-do="dup">Dupliquer</button></div>
       </div>`;
-    if (e.type === "texte") {
+    if (e.type === "forme") propsBody.innerHTML = formeProps(e, common);
+    else if (e.type === "texte") {
       propsBody.innerHTML = `
         <div class="group"><h3>Texte</h3>
           <label class="field"><span>Texte</span><input type="text" class="big" id="p-texte" data-k="texte" value="${esc(e.texte)}" maxlength="80"></label>
@@ -996,8 +1380,8 @@ const FONT_DATA = /*FONTS*/[];
           ${segCtl("sens", "Sens", e.sens, [["haut", "Vers le haut"], ["bas", "Vers le bas"]])}
         </div>
         <div class="group"><h3>Relief</h3>
-          ${numCtl("relief", "Hauteur au-dessus du support", e.relief, 0.2, 60, 0.2, "mm")}
-          <label class="switch"><input type="checkbox" data-k="contour" ${e.contour ? "checked" : ""}><span>Inclus dans le contour</span></label>
+          ${numCtl("relief", "Hauteur des lettres au-dessus du support", e.relief, 0.2, 60, 0.2, "mm")}
+          ${supportCtl(e, "Texte")}
           ${filCtl(e.filament)}
         </div>
         ${common}`;
@@ -1013,13 +1397,36 @@ const FONT_DATA = /*FONTS*/[];
           ${caissonCtl(e)}
           ${filCtl(e.filament)}
         </div>
+        ${lisereCtl(e)}
         ${common}`;
     }
+  }
+  function formeProps(e, common) {
+    const def = FORMES[e.forme];
+    const thumb = thumbSvg(formePaths({ ...e, taille: 30, coin: 0 }));
+    const socle = e.pose !== "relief";
+    return `
+        <div class="group"><h3>Forme</h3>
+          <div class="field"><span>Modèle</span><button type="button" class="shapebtn" id="sh-btn" aria-haspopup="dialog">${thumb}<span>${esc(labelOf(e))}</span></button></div>
+          <div class="row">${numCtl("taille", "Hauteur", e.taille, 3, 250, 0.5, "mm")}${numCtl("largeur", "Largeur", e.largeur, 0, 250, 0.5, "mm")}</div>
+          <p class="hint">Largeur 0 : proportions d'origine${e.forme === "rect" || e.forme === "ovale" ? " (carré ou cercle)" : ""}.</p>
+          ${numCtl("coin", "Arrondi des angles", e.coin, 0, 30, 0.5, "mm")}
+          ${e.forme === "etoile" ? numCtl("branches", "Branches", e.branches, 3, 12, 1, "") : ""}
+        </div>
+        <div class="group"><h3>Volume</h3>
+          ${segCtl("pose", "Rôle", socle ? "socle" : "relief", [["socle", "Support"], ["relief", "En relief"]])}
+          <p class="hint">${socle ? "Posée sur le plateau, comme une lettre de fond : les textes et icônes se posent dessus." : "Posée sur le support ou le contour qu'elle recouvre, comme un texte."}</p>
+          ${socle ? numCtl("epaisseur", "Épaisseur", e.epaisseur, 0.6, 60, 0.2, "mm") + caissonCtl(e)
+            : numCtl("relief", "Hauteur au-dessus du support", e.relief, 0.2, 60, 0.2, "mm") + supportCtl(e, "Forme")}
+          ${filCtl(e.filament)}
+        </div>
+        ${socle ? lisereCtl(e) : ""}
+        ${common}`;
   }
   function updatePropsLive() {
     const e = project.elements.find(x => x.id === selected);
     if (!e) return;
-    for (const k of ["x", "y", "rot", "taille"]) {
+    for (const k of ["x", "y", "rot", "taille", "largeur"]) {
       const r = document.getElementById("r-" + k), n = document.getElementById("n-" + k);
       if (r) r.value = e[k]; if (n) n.value = e[k];
     }
@@ -1049,16 +1456,18 @@ const FONT_DATA = /*FONTS*/[];
   propsBody.addEventListener("click", ev => {
     const o = targetObj(ev.target);
     const fil = ev.target.closest("[data-fil]");
-    if (fil && o) { o.filament = +fil.dataset.fil; changed(true); return; }
+    if (fil && o) { o[fil.dataset.filk || "filament"] = +fil.dataset.fil; changed(true); return; }
     const seg = ev.target.closest("[data-seg]");
-    if (seg && o) { o[seg.dataset.seg] = seg.dataset.v; changed(false); return; }
+    if (seg && o) { o[seg.dataset.seg] = seg.dataset.v; changed(seg.dataset.seg === "pose"); return; }
     const d = ev.target.closest("[data-do]");
     if (d && o) {
       if (d.dataset.do === "center") { o.x = 0; o.y = 0; changed(false); }
       if (d.dataset.do === "dup") duplicate(o.id);
+      if (d.dataset.do === "contour-on") { project.contour.actif = true; changed(false); }
       return;
     }
     if (ev.target.closest("#fp-btn")) openFontList(ev.target.closest("#fp-btn"));
+    if (ev.target.closest("#sh-btn")) openPicker(o);
   });
   // Sélecteur de police avec aperçu
   function openFontList(btn) {
@@ -1097,7 +1506,8 @@ const FONT_DATA = /*FONTS*/[];
     if (mod && ev.key.toLowerCase() === "y" && !typing) { ev.preventDefault(); redo(); return; }
     if (typing) return;
     const e = project.elements.find(x => x.id === selected);
-    if (ev.key === "Escape") { const o = document.querySelector(".fontlist"); if (o) o.remove(); else select(null); return; }
+    if (ev.key === "Escape") { const pk = document.querySelector(".picker-back"), o = document.querySelector(".fontlist"); if (pk) closePicker(); else if (o) o.remove(); else select(null); return; }
+    if (document.querySelector(".picker-back")) return;
     if (!e) return;
     if (ev.key === "Delete" || ev.key === "Backspace") { ev.preventDefault(); removeElement(e.id); return; }
     if (mod && ev.key.toLowerCase() === "d") { ev.preventDefault(); duplicate(e.id); return; }
@@ -1323,6 +1733,6 @@ ${objs.map(o => `    <part id="${o.id}" subtype="normal_part">
   renderAll();
   requestAnimationFrame(fitView);
   commit(true);
-  window.__lettrage = { get project() { return project; }, set project(p) { project = sanitize(p); renderAll(); }, compose, buildSolids, bundle, threeMF, stl, select, rebuild, fitView, migrateV1, view, selBox, toScreen, get selected() { return selected; } };
+  window.__lettrage = { get project() { return project; }, set project(p) { project = sanitize(p); renderAll(); }, compose, buildSolids, bundle, threeMF, stl, select, rebuild, fitView, migrateV1, view, selBox, toScreen, importSvg, FORMES, formePaths, openPicker, get selected() { return selected; } };
 })();
 </script>
