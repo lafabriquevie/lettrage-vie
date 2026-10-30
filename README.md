@@ -1,10 +1,10 @@
 # Lettrage Vié
 
-Générateur de lettrage cursif en relief, deux couleurs, pour l'impression 3D chez La Fabrique Vié : cake toppers, enseignes, plaques. Outil interne, sans rapport avec le site lafabriquevie.fr.
+Générateur de lettrage en relief multicolore (jusqu'à 4 filaments AMS), pour l'impression 3D chez La Fabrique Vié : cake toppers, enseignes, plaques. Outil interne, sans rapport avec le site lafabriquevie.fr.
 
 ## Deux versions
 
-- **Page web** (`lettrage-vie.source.html`) : aperçu 3D en direct et export d'un ZIP qui contient un 3MF (pièces « Socle » et « Texte », à affecter aux filaments AMS) et un STL par couleur.
+- **Page web** (`lettrage-vie.source.html`) : plan de travail 2D, aperçu 3D et export d'un ZIP qui contient un 3MF (objets « Filament 1 » à « Filament 4 », déjà colorés) et un STL par filament.
 - **OpenSCAD** (`lettrage-vie.scad`) : à ouvrir dans OpenSCAD, puis Fenêtre > Customizer. Fonctions de base uniquement (3 lignes, arc, chiffre de fond).
 
 ## Construire la page
@@ -15,13 +15,17 @@ python3 build.py
 
 Le script injecte les polices de `fonts/` en base64 dans le source et produit `lettrage-vie.html`, un fichier autonome. Il suffit de l'ouvrir dans un navigateur (connexion internet nécessaire pour les bibliothèques three.js, opentype.js, clipper-lib et fflate, chargées depuis cdnjs et jsdelivr).
 
-## Réglages de la page
+## La page
 
-- Lignes en nombre libre (12 au maximum). Pour chaque ligne : texte, police, hauteur des majuscules, arc (rayon et sens), décalage X/Y, rotation.
-- Contour sous le texte, désactivable, avec un arrière plein ou creux (parois, face avant pleine, fond arrière ouvert ou fermé).
-- Chiffre ou texte de fond, désactivable, avec lui aussi un arrière plein ou creux.
-- Le texte de face reste toujours plein.
+- **Plan de travail** vu de dessus : clic pour sélectionner, glisser pour déplacer (aimantation au centre), poignée ronde pour tourner (Maj = pas de 15°), poignée carrée pour agrandir. Molette ou pincement pour zoomer, glisser sur le vide pour déplacer la vue.
+- **Calques** : textes et lettres ou chiffres de fond, en nombre libre. L'ordre de la liste décide qui passe devant ; un texte placé plus bas dans la liste découpe les textes d'une autre couleur qui le recouvrent.
+- **Propriétés** de l'élément sélectionné : texte, police (aperçu dans la police), hauteur des majuscules, espacement, arc, relief, filament, position et rotation. Sans sélection : couleurs des 4 filaments et contour commun sous les textes.
+- Contour et fonds peuvent avoir un **arrière creux** (parois, face avant pleine, fond arrière ouvert ou fermé). Les textes restent pleins.
+- **Annuler / rétablir** (Ctrl Z, Ctrl Maj Z), Suppr, Ctrl D pour dupliquer, flèches pour déplacer de 1 mm (10 mm avec Maj).
+- **Enregistrer / ouvrir** un projet en `.json`. Le dernier projet est aussi gardé dans le navigateur ; les réglages de l'ancienne version sont repris automatiquement.
 
 ## Polices
 
-Pacifico, Lobster et Leckerli One, toutes sous SIL Open Font License 1.1 (licences dans `fonts/`).
+La page embarque 13 familles sous SIL Open Font License 1.1, en woff (sous-ensemble latin, accents compris) : Roboto, Open Sans, Inter, Montserrat, Lato, Poppins, Oswald, Raleway, Nunito, Playfair Display, avec plusieurs graisses, et les cursives Pacifico, Lobster et Leckerli One. La liste est dans `fonts/polices.json`, les licences dans `fonts/licences/`. Pour ajouter une police : déposer le woff dans `fonts/`, l'ajouter à `polices.json`, relancer `build.py`.
+
+La version OpenSCAD utilise les TTF de `fonts/ttf/`.
