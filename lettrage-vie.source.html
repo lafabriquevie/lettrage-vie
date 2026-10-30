@@ -633,16 +633,16 @@ const FONT_DATA = /*FONTS*/[];
   let seq = 1;
   const uid = () => "e" + (seq++).toString(36) + Math.random().toString(36).slice(2, 6);
   function newTexte(d) {
-    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
+    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, rehausse: 0, type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
       relief: 1.2, contour: true, support: 0, sup_largeur: 0, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   function newFond(d) {
-    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
+    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, rehausse: 0, type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
       ...LISERE, filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   // Forme : support (posé sur le plateau, comme une lettre de fond) ou relief (posé dessus, comme un texte)
   function newForme(d) {
-    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
+    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, rehausse: 0, type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
       epaisseur: 3, relief: 1.2, contour: false, support: 0, sup_largeur: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
       filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
@@ -1382,7 +1382,9 @@ const FONT_DATA = /*FONTS*/[];
         <div class="row"><button type="button" class="btn sm" data-do="center">Centrer</button><button type="button" class="btn sm" data-do="dup">Dupliquer</button></div>
         <label class="switch"><input type="checkbox" data-k="separe" ${e.separe ? "checked" : ""}><span>Pièce séparée (imprimée à part, à coller)</span></label>
         ${e.separe ? segCtl("encastre", "Montage", e.encastre || "aucun", [["traversant", "Découpe"], ["poche", "Poche"], ["aucun", "Posée dessus"]])
-          + (e.encastre === "aucun" ? "" : `<div class="row">${numCtl("jeu", "Jeu", e.jeu, 0, 1, 0.05, "mm")}${e.encastre === "poche" ? numCtl("profondeur", "Profondeur", e.profondeur, 0.4, 30, 0.2, "mm") : ""}</div>`) : ""}
+          + (e.encastre === "aucun" ? "" : `<div class="row">${numCtl("jeu", "Jeu", e.jeu, 0, 1, 0.05, "mm")}${e.encastre === "poche" ? numCtl("profondeur", "Profondeur", e.profondeur, 0.4, 30, 0.2, "mm") : ""}</div>`)
+          + numCtl("rehausse", "Rehausse sous la pièce", e.rehausse || 0, 0, 60, 0.2, "mm")
+          + `<p class="hint">La rehausse ajoute un socle sous la pièce : elle dépasse d'autant plus du support. ${sepInfo(e)}</p>` : ""}
         <p class="hint">${!e.separe ? "Utile pour une pièce trop haute ou d'une autre matière, à coller après impression."
           : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau. Vue 3D « Impression » pour voir la découpe."
           : e.encastre === "poche" ? "Le support est creusé à l'empreinte de la pièce (plus le jeu), sur la profondeur choisie."
@@ -1422,6 +1424,18 @@ const FONT_DATA = /*FONTS*/[];
         ${lisereCtl(e)}
         ${common}`;
     }
+  }
+  // Dépassement de la pièce séparée au-dessus du support qui l'entoure, une fois montée
+  function sepInfo(e) {
+    try {
+      const g = exportGroups(project, "info");
+      const sp = g.find(x => x.e === e), main = g.find(x => !x.e);
+      if (!sp || !main) return "";
+      const top = Math.max(0, ...sp.comp.pieces.map(q => q.z1)) + (sp.z || 0);
+      const near = main.comp.pieces.filter(q => !q.relief && inter(q.paths, offset(sp.fp, (e.jeu || 0) + 1.5)).length);
+      const sup = near.length ? Math.max(...near.map(q => q.z1)) : 0;
+      return `Montée, elle dépasse de <b>${(top - sup).toFixed(1)} mm</b> au-dessus du support.`;
+    } catch (err) { return ""; }
   }
   function formeProps(e, common) {
     const def = FORMES[e.forme];
@@ -1474,6 +1488,13 @@ const FONT_DATA = /*FONTS*/[];
     if (k === "texte") renderLayers();
     scheduleRebuild();
     commit();
+  });
+  // Fin d'un réglage qui change le dépassement affiché : on rafraîchit le panneau
+  propsBody.addEventListener("change", ev => {
+    if (["rehausse", "profondeur", "jeu", "support", "relief"].includes(ev.target.dataset.k)) {
+      const e = project.elements.find(x => x.id === selected);
+      if (e && e.separe) { rebuild(); renderProps(); }
+    }
   });
   propsBody.addEventListener("click", ev => {
     const o = targetObj(ev.target);
@@ -1663,8 +1684,15 @@ const FONT_DATA = /*FONTS*/[];
     const vis = pr.elements.filter(e => e.visible !== false);
     const main = vis.filter(e => !e.separe);
     const seps = vis.filter(e => e.separe).map(e => {
-      const comp = compose({ ...pr, elements: [e] });
-      return { e, nom: labelOf(e), comp, fp: union(comp.pieces.flatMap(q => q.paths)), z: 0 };
+      let comp = compose({ ...pr, elements: [e] });
+      const fp = union(comp.pieces.flatMap(q => q.paths));
+      // Rehausse : un socle à l'empreinte de la pièce, dans le filament de sa couche la plus basse, qui la soulève
+      const r = e.rehausse > 0 ? e.rehausse : 0;
+      if (r && fp.length) {
+        const low = comp.pieces.reduce((a, q) => (!a || q.z0 < a.z0 ? q : a), null);
+        comp = { ...comp, pieces: [{ filament: low ? low.filament : e.filament, paths: fp, z0: 0, z1: r }, ...comp.pieces.map(q => ({ ...q, z0: q.z0 + r, z1: q.z1 + r }))] };
+      }
+      return { e, nom: labelOf(e), comp, fp, z: 0 };
     });
     let mainComp = main.length ? compose({ ...pr, elements: main }) : null;
     if (mainComp) for (const sp of seps) {
@@ -1690,6 +1718,7 @@ const FONT_DATA = /*FONTS*/[];
     const groups = [];
     if (mainComp) groups.push({ nom: pr.nom || "Lettrage", comp: mainComp });
     groups.push(...seps);
+    if (layout === "info") return groups; // compositions seules, sans extrusion
     let cursor = null;
     for (const g of groups) {
       g.solids = buildSolids(g.comp);
