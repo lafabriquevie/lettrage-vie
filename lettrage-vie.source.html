@@ -232,6 +232,10 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
         <button type="button" class="btn sm" id="z-in" aria-label="Zoomer">+</button>
       </div>
       <div class="zoom" id="zoom-3d" hidden>
+        <div class="tabs" role="group" aria-label="Disposition" id="lay3d" hidden>
+          <button type="button" id="v-monte" aria-pressed="true" title="Pièces séparées à leur place de montage">Monté</button>
+          <button type="button" id="v-print" aria-pressed="false" title="Pièces séparées posées à plat à côté, comme dans le 3MF">Impression</button>
+        </div>
         <button type="button" class="btn sm" id="v-face">Face</button>
         <button type="button" class="btn sm" id="v-back">Arrière</button>
       </div>
@@ -1565,15 +1569,18 @@ const FONT_DATA = /*FONTS*/[];
     controls.target.set(cx, cy, 0);
     controls.update();
   }
-  let currentSolids = null;
+  let currentSolids = null, layout3d = "monte";
   function render3dModel() {
     if (!renderer || !comp) return;
     if (solids3dDirty) {
       while (group.children.length) { const m = group.children.pop(); m.geometry.dispose(); m.material.dispose(); }
-      // Aperçu tel qu'exporté : les pièces séparées posées à côté
-      const groups = exportGroups(project);
-      currentSolids = { 1: [], 2: [], 3: [], 4: [] };
-      for (const g of groups) for (const f of [1, 2, 3, 4]) currentSolids[f].push(...g.solids[f]);
+      // « Monté » : tout à sa place ; « Impression » : pièces séparées posées à plat à côté, comme dans le 3MF
+      const hasSep = project.elements.some(e => e.separe && e.visible !== false);
+      document.getElementById("lay3d").hidden = !hasSep;
+      if (hasSep && layout3d === "print") {
+        currentSolids = { 1: [], 2: [], 3: [], 4: [] };
+        for (const g of exportGroups(project)) for (const f of [1, 2, 3, 4]) currentSolids[f].push(...g.solids[f]);
+      } else currentSolids = buildSolids(comp);
       for (const f of [1, 2, 3, 4]) {
         const mat = new THREE.MeshStandardMaterial({ color: project.filaments[f - 1], roughness: 0.55, metalness: 0 });
         for (const g of currentSolids[f]) group.add(new THREE.Mesh(g, mat));
@@ -1595,6 +1602,12 @@ const FONT_DATA = /*FONTS*/[];
   }
   document.getElementById("tab-plan").addEventListener("click", () => setMode(false));
   document.getElementById("tab-3d").addEventListener("click", () => setMode(true));
+  for (const [id, v] of [["v-monte", "monte"], ["v-print", "print"]]) document.getElementById(id).addEventListener("click", () => {
+    layout3d = v;
+    document.getElementById("v-monte").setAttribute("aria-pressed", v === "monte");
+    document.getElementById("v-print").setAttribute("aria-pressed", v === "print");
+    solids3dDirty = true; render3dModel(); frame3d(false);
+  });
   document.getElementById("v-face").addEventListener("click", () => frame3d(false));
   document.getElementById("v-back").addEventListener("click", () => frame3d(true));
 
