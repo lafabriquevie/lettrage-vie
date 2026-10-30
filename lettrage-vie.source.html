@@ -633,16 +633,16 @@ const FONT_DATA = /*FONTS*/[];
   let seq = 1;
   const uid = () => "e" + (seq++).toString(36) + Math.random().toString(36).slice(2, 6);
   function newTexte(d) {
-    return { id: uid(), separe: false, type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
+    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
       relief: 1.2, contour: true, support: 0, sup_largeur: 0, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   function newFond(d) {
-    return { id: uid(), separe: false, type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
+    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
       ...LISERE, filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   // Forme : support (posé sur le plateau, comme une lettre de fond) ou relief (posé dessus, comme un texte)
   function newForme(d) {
-    return { id: uid(), separe: false, type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
+    return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
       epaisseur: 3, relief: 1.2, contour: false, support: 0, sup_largeur: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
       filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
@@ -691,6 +691,7 @@ const FONT_DATA = /*FONTS*/[];
       }
       n.lis_filament = clamp(Math.round(+n.lis_filament) || 2, 1, 4);
       n.separe = !!n.separe;
+      if (!["traversant", "poche", "aucun"].includes(n.encastre)) n.encastre = "traversant";
       n.filament = clamp(Math.round(+n.filament) || 1, 1, 4);
       out.elements.push(n);
     }
@@ -765,15 +766,15 @@ const FONT_DATA = /*FONTS*/[];
     const pieces = []; // {filament, paths, z0, z1, creux?}
     let field = [];
     const fieldUnion = () => union(field.flatMap(r => r.paths));
-    function place(paths, top, filament, caisson) {
+    function place(paths, top, filament, caisson, relief) {
       if (!paths.length) return;
       for (const r of field) {
         if (r.h >= top) continue;
         const part = inter(paths, r.paths);
-        if (part.length) pieces.push({ filament, paths: part, z0: r.h, z1: top });
+        if (part.length) pieces.push({ filament, paths: part, z0: r.h, z1: top, relief });
       }
       const free = diff(paths, fieldUnion());
-      if (free.length) pieces.push({ filament, paths: free, z0: 0, z1: top, caisson });
+      if (free.length) pieces.push({ filament, paths: free, z0: 0, z1: top, caisson, relief });
       const next = [];
       for (const r of field) {
         const out = diff(r.paths, paths), inn = inter(r.paths, paths);
@@ -824,7 +825,7 @@ const FONT_DATA = /*FONTS*/[];
       field = base;
       const top = maxUnder(p) + e.relief;
       const saved = field;
-      place(p, top, e.filament, null);
+      place(p, top, e.filament, null, true);
       field = saved;
     });
     return { pieces, shapes, contourPaths };
@@ -1380,7 +1381,12 @@ const FONT_DATA = /*FONTS*/[];
         ${numCtl("rot", "Rotation", e.rot, -180, 180, 1, "°")}
         <div class="row"><button type="button" class="btn sm" data-do="center">Centrer</button><button type="button" class="btn sm" data-do="dup">Dupliquer</button></div>
         <label class="switch"><input type="checkbox" data-k="separe" ${e.separe ? "checked" : ""}><span>Pièce séparée (imprimée à part, à coller)</span></label>
-        <p class="hint">${e.separe ? "Exportée comme un objet à part, posée à plat à côté du reste ; sur le plan, elle reste à sa place de montage." : "Utile pour une pièce trop haute ou d'une autre matière, à coller après impression."}</p>
+        ${e.separe ? segCtl("encastre", "Montage", e.encastre || "aucun", [["traversant", "Découpe"], ["poche", "Poche"], ["aucun", "Posée dessus"]])
+          + (e.encastre === "aucun" ? "" : `<div class="row">${numCtl("jeu", "Jeu", e.jeu, 0, 1, 0.05, "mm")}${e.encastre === "poche" ? numCtl("profondeur", "Profondeur", e.profondeur, 0.4, 30, 0.2, "mm") : ""}</div>`) : ""}
+        <p class="hint">${!e.separe ? "Utile pour une pièce trop haute ou d'une autre matière, à coller après impression."
+          : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau. Vue 3D « Impression » pour voir la découpe."
+          : e.encastre === "poche" ? "Le support est creusé à l'empreinte de la pièce (plus le jeu), sur la profondeur choisie."
+          : "La pièce se colle sur le dessus, sans logement."}</p>
       </div>`;
     if (e.type === "forme") propsBody.innerHTML = formeProps(e, common);
     else if (e.type === "texte") {
@@ -1577,9 +1583,9 @@ const FONT_DATA = /*FONTS*/[];
       // « Monté » : tout à sa place ; « Impression » : pièces séparées posées à plat à côté, comme dans le 3MF
       const hasSep = project.elements.some(e => e.separe && e.visible !== false);
       document.getElementById("lay3d").hidden = !hasSep;
-      if (hasSep && layout3d === "print") {
+      if (hasSep) {
         currentSolids = { 1: [], 2: [], 3: [], 4: [] };
-        for (const g of exportGroups(project)) for (const f of [1, 2, 3, 4]) currentSolids[f].push(...g.solids[f]);
+        for (const g of exportGroups(project, layout3d)) for (const f of [1, 2, 3, 4]) currentSolids[f].push(...g.solids[f]);
       } else currentSolids = buildSolids(comp);
       for (const f of [1, 2, 3, 4]) {
         const mat = new THREE.MeshStandardMaterial({ color: project.filaments[f - 1], roughness: 0.55, metalness: 0 });
@@ -1650,16 +1656,45 @@ const FONT_DATA = /*FONTS*/[];
     return `<mesh><vertices>${verts.join("")}</vertices><triangles>${tris.join("")}</triangles></mesh>`;
   }
   // Objets à exporter : l'ensemble monté, puis chaque pièce séparée, posée à plat à côté (10 mm d'écart)
-  function exportGroups(pr) {
+  // Objets à exporter : l'ensemble, puis chaque pièce séparée. L'ensemble reçoit une découpe ou une poche
+  // à l'empreinte de chaque pièce séparée (plus le jeu), pour pouvoir l'encastrer.
+  // layout « print » : pièces posées à plat à côté ; « monte » : pièces à leur place de montage.
+  function exportGroups(pr, layout = "print") {
     const vis = pr.elements.filter(e => e.visible !== false);
-    const main = vis.filter(e => !e.separe), sep = vis.filter(e => e.separe);
+    const main = vis.filter(e => !e.separe);
+    const seps = vis.filter(e => e.separe).map(e => {
+      const comp = compose({ ...pr, elements: [e] });
+      return { e, nom: labelOf(e), comp, fp: union(comp.pieces.flatMap(q => q.paths)), z: 0 };
+    });
+    let mainComp = main.length ? compose({ ...pr, elements: main }) : null;
+    if (mainComp) for (const sp of seps) {
+      if (!sp.fp.length) continue;
+      // Hauteur du support sous la pièce (sans compter les textes et icônes en relief voisins)
+      const under = mainComp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length);
+      const top = under.reduce((m, q) => Math.max(m, q.z1), 0);
+      const mode = sp.e.encastre || "aucun";
+      if (mode === "aucun" || !under.length) { sp.z = under.length ? top : 0; continue; }
+      const cut = offset(sp.fp, sp.e.jeu || 0);
+      const zb = mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : 0;
+      sp.z = zb;
+      const next = [];
+      for (const q of mainComp.pieces) {
+        if (q.z1 <= zb || !inter(q.paths, cut).length) { next.push(q); continue; }
+        const out = diff(q.paths, cut);
+        if (out.length) next.push({ ...q, paths: out });
+        const inn = zb > q.z0 ? inter(q.paths, cut) : [];
+        if (inn.length) next.push({ filament: q.filament, paths: inn, z0: q.z0, z1: zb });
+      }
+      mainComp = { ...mainComp, pieces: next };
+    }
     const groups = [];
-    if (main.length) groups.push({ nom: pr.nom || "Lettrage", comp: compose({ ...pr, elements: main }) });
-    for (const e of sep) groups.push({ nom: labelOf(e), comp: compose({ ...pr, elements: [e] }) });
+    if (mainComp) groups.push({ nom: pr.nom || "Lettrage", comp: mainComp });
+    groups.push(...seps);
     let cursor = null;
     for (const g of groups) {
       g.solids = buildSolids(g.comp);
-      const b = bounds(g.comp.pieces.flatMap(p => p.paths));
+      if (layout === "monte") { if (g.z) for (const f of [1, 2, 3, 4]) g.solids[f].forEach(geo => geo.translate(0, 0, g.z)); continue; }
+      const b = bounds(g.comp.pieces.flatMap(q => q.paths));
       if (!b) continue;
       if (cursor === null) { cursor = b.x1 / S + 10; continue; }
       const dx = cursor - b.x0 / S, dy = -(b.y0 + b.y1) / 2 / S;
