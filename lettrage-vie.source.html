@@ -625,7 +625,7 @@ const FONT_DATA = /*FONTS*/[];
   const uid = () => "e" + (seq++).toString(36) + Math.random().toString(36).slice(2, 6);
   function newTexte(d) {
     return { id: uid(), type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
-      relief: 1.2, contour: true, support: 0, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
+      relief: 1.2, contour: true, support: 0, sup_largeur: 0, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   function newFond(d) {
     return { id: uid(), type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
@@ -634,7 +634,7 @@ const FONT_DATA = /*FONTS*/[];
   // Forme : support (posé sur le plateau, comme une lettre de fond) ou relief (posé dessus, comme un texte)
   function newForme(d) {
     return { id: uid(), type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
-      epaisseur: 3, relief: 1.2, contour: false, support: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
+      epaisseur: 3, relief: 1.2, contour: false, support: 0, sup_largeur: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
       filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   const isSocle = e => e.type === "fond" || (e.type === "forme" && e.pose !== "relief");
@@ -793,10 +793,12 @@ const FONT_DATA = /*FONTS*/[];
       // Un texte peut avoir sa propre hauteur de contour (support) ; les plus bas d'abord, les plus hauts s'empilent dessus
       const members = textes.filter(e => e.contour);
       const hOf = e => (e.support > 0 ? e.support : c.epaisseur);
-      for (const h of [...new Set(members.map(hOf))].sort((a, b) => a - b)) {
-        const u = union(members.filter(e => hOf(e) === h).flatMap(e => shapes.get(e.id)));
+      const wOf = e => (e.sup_largeur > 0 ? e.sup_largeur : c.largeur);
+      const groups = [...new Set(members.map(e => hOf(e) + "|" + wOf(e)))].map(k => k.split("|").map(Number)).sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+      for (const [h, w] of groups) {
+        const u = union(members.filter(e => hOf(e) === h && wOf(e) === w).flatMap(e => shapes.get(e.id)));
         if (!u.length) continue;
-        const cp = offset(offset(u, c.lissage + c.largeur), -c.lissage);
+        const cp = offset(offset(u, c.lissage + w), -c.lissage);
         contourPaths.push(...cp);
         place(cp, h, c.filament, c.arriere === "creux" ? c : null);
       }
@@ -1313,8 +1315,9 @@ const FONT_DATA = /*FONTS*/[];
     return `<label class="switch"><input type="checkbox" data-k="contour" ${e.contour ? "checked" : ""}><span>${nom} posé${nom === "Forme" ? "e" : ""} sur un contour (support)</span></label>
       <div ${e.contour ? "" : "hidden"} style="display:flex;flex-direction:column;gap:8px">
         ${c.actif ? numCtl("support", `Hauteur du support (0 = commune, ${c.epaisseur} mm)`, e.support || 0, 0, 60, 0.2, "mm")
+            + numCtl("sup_largeur", `Largeur autour des lettres (0 = commune, ${c.largeur} mm)`, e.sup_largeur || 0, 0, 15, 0.1, "mm")
           : `<p class="hint">Le contour est désactivé pour tout le projet.</p><button type="button" class="btn sm" data-do="contour-on">Activer le contour</button>`}
-        <p class="hint">Largeur, arrondi et filament du contour : dans les réglages du projet (clic sur une zone vide du plan).</p>
+        <p class="hint">Arrondi et filament du contour : dans les réglages du projet (clic sur une zone vide du plan).</p>
       </div>`;
   };
   const lisereCtl = e => `
