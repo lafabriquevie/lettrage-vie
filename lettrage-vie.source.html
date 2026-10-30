@@ -230,6 +230,18 @@ details.line > summary .preview { font-family: var(--font-mono); font-size: 11px
           <label class="field"><span>Décalage Y <output id="o-dy"></output></span>
             <input type="range" id="dy" min="-150" max="150" step="1" value="-4"></label>
         </div>
+        <label class="field"><span>Arrière du chiffre</span>
+          <select id="arriere_chiffre"><option value="plein">Plein</option><option value="creux">Creux (enseigne)</option></select></label>
+        <div class="sub" id="creux-chiffre-opts">
+          <div class="row">
+            <label class="field"><span>Épaisseur des parois <output id="o-paroi_chiffre"></output></span>
+              <input type="range" id="paroi_chiffre" min="0.4" max="6" step="0.1" value="1.6"></label>
+            <label class="field"><span>Face avant <output id="o-capot_chiffre"></output></span>
+              <input type="range" id="capot_chiffre" min="0.4" max="6" step="0.2" value="1.6"></label>
+          </div>
+          <label class="field"><span>Fond arrière <output id="o-fond_chiffre"></output></span>
+            <input type="range" id="fond_chiffre" min="0" max="6" step="0.2" value="0"></label>
+        </div>
       </div>
     </fieldset>
 
@@ -297,6 +309,7 @@ const FONT_DATA = /*FONTS*/{};
   const state = {};
   function defaults() {
     return { lines: DEFAULT_LINES.map(newLine), interligne: 1, espacement: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
+      arriere_chiffre: "plein", paroi_chiffre: 1.6, capot_chiffre: 1.6, fond_chiffre: 0,
       contour_on: true, chiffre_on: true, chiffre: "10", police_chiffre: "Leckerli One",
       taille_chiffre: 62, dx: 0, dy: -4, ep_fond: 2, ep_contour: 3, relief: 1.2, largeur: 1.6, lissage: 1,
       c_socle: "#f4b6c8", c_texte: "#ffffff" };
@@ -323,7 +336,7 @@ const FONT_DATA = /*FONTS*/{};
     const o = document.getElementById("o-" + id);
     if (!o) return;
     if (id === "espacement") o.value = `${(+v).toFixed(3)} em`;
-    else if (id === "fond" && +v === 0) o.value = "ouvert";
+    else if ((id === "fond" || id === "fond_chiffre") && +v === 0) o.value = "ouvert";
     else if (/^(taille_chiffre|dx|dy)$/.test(id)) o.value = `${(+v).toFixed(0)} mm`;
     else o.value = `${(+v).toFixed(1)} mm`;
   }
@@ -385,6 +398,7 @@ const FONT_DATA = /*FONTS*/{};
   }
   function visibility() {
     document.getElementById("creux-opts").hidden = state.arriere !== "creux";
+    document.getElementById("creux-chiffre-opts").hidden = state.arriere_chiffre !== "creux";
     document.getElementById("contour-opts").hidden = !state.contour_on;
     document.getElementById("chiffre-opts").hidden = !state.chiffre_on;
   }
@@ -584,9 +598,11 @@ const FONT_DATA = /*FONTS*/{};
       const b = bounds(chiffre);
       if (b) chiffre = translate(chiffre, -(b.x0 + b.x1) / 2 + st.dx * S, -(b.y0 + b.y1) / 2 + st.dy * S);
     }
-    // Contour creux : une paroi le long du bord, une face avant pleine sous le texte
+    // Arrière creux : une paroi le long du bord, une face avant pleine dessus
     const parois = st.arriere === "creux" && contour.length ? difference(contour, offset(contour, -st.paroi)) : null;
-    return { texte, contour, chiffre, parois };
+    const paroisChiffre = st.arriere_chiffre === "creux" && chiffre.length
+      ? difference(chiffre, offset(chiffre, -st.paroi_chiffre)) : null;
+    return { texte, contour, chiffre, parois, paroisChiffre };
   }
 
   // ---------- Extrusion 3D ----------
@@ -629,15 +645,19 @@ const FONT_DATA = /*FONTS*/{};
   }
   // Socle : contour et chiffre restent deux volumes fermés qui se chevauchent ;
   // le trancheur les fusionne, chacun reste étanche.
+  // Volume plein, ou boîte creuse : parois, face avant en haut, fond arrière optionnel
+  function caisson(region, parois, h, capot, fond) {
+    if (!parois) return [extrude(region, 0, h)];
+    const c = Math.min(capot, h);
+    const out = [extrude(parois, 0, h), extrude(region, h - c, h)];
+    if (fond > 0) out.push(extrude(region, 0, Math.min(fond, h - c)));
+    return out;
+  }
   function solids(geo, st) {
-    const socle = [];
-    if (geo.parois) {
-      const capot = Math.min(st.capot, st.ep_contour);
-      socle.push(extrude(geo.parois, 0, st.ep_contour));
-      socle.push(extrude(geo.contour, st.ep_contour - capot, st.ep_contour));
-      if (st.fond > 0) socle.push(extrude(geo.contour, 0, Math.min(st.fond, st.ep_contour - capot)));
-    } else socle.push(extrude(geo.contour, 0, st.ep_contour));
-    socle.push(extrude(geo.chiffre, 0, st.ep_fond));
+    const socle = [
+      ...caisson(geo.contour, geo.parois, st.ep_contour, st.capot, st.fond),
+      ...caisson(geo.chiffre, geo.paroisChiffre, st.ep_fond, st.capot_chiffre, st.fond_chiffre),
+    ];
     // Avec contour, le texte est posé dessus ; sans contour, il part du plateau
     // (et traverse la plaque du chiffre s'il y en a une).
     const z0 = geo.contour.length ? st.ep_contour : 0;
