@@ -1696,10 +1696,13 @@ const FONT_DATA = /*FONTS*/[];
       const under = mainComp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length);
       const top = under.reduce((m, q) => Math.max(m, q.z1), 0);
       const mode = sp.e.encastre || "aucun";
-      if (mode === "aucun" || !under.length) { sp.z = under.length ? top : 0; continue; }
+      const dz = +sp.e.dz || 0;
+      if (mode === "aucun" || !under.length) { sp.z = (under.length ? top : 0) + dz; continue; }
       const cut = offset(sp.fp, sp.e.jeu || 0);
-      const zb = mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : 0;
+      // Le fond du logement suit le décalage Z : le support reste plein sous la pièce, sans vide
+      const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : 0) + dz;
       sp.z = zb;
+      if (zb >= top) continue; // pièce entièrement au-dessus du support : pas de logement
       const next = [];
       for (const q of mainComp.pieces) {
         if (q.z1 <= zb || !inter(q.paths, cut).length) { next.push(q); continue; }
@@ -1710,8 +1713,7 @@ const FONT_DATA = /*FONTS*/[];
       }
       mainComp = { ...mainComp, pieces: next };
     }
-    // Décalage en hauteur choisi par l'utilisateur, appliqué à la position de montage
-    for (const sp of seps) sp.z += +sp.e.dz || 0;
+    if (!mainComp) for (const sp of seps) sp.z = +sp.e.dz || 0;
     const groups = [];
     if (mainComp) groups.push({ nom: pr.nom || "Lettrage", comp: mainComp });
     groups.push(...seps);
