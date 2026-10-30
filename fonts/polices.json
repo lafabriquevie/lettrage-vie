@@ -1,0 +1,258 @@
+[
+ {
+  "cle": "Roboto|400",
+  "famille": "Roboto",
+  "graisse": 400,
+  "nom": "Roboto Regular",
+  "fichier": "roboto-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Roboto|700",
+  "famille": "Roboto",
+  "graisse": 700,
+  "nom": "Roboto Bold",
+  "fichier": "roboto-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Roboto|900",
+  "famille": "Roboto",
+  "graisse": 900,
+  "nom": "Roboto Black",
+  "fichier": "roboto-900.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Open Sans|400",
+  "famille": "Open Sans",
+  "graisse": 400,
+  "nom": "Open Sans Regular",
+  "fichier": "open-sans-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Open Sans|700",
+  "famille": "Open Sans",
+  "graisse": 700,
+  "nom": "Open Sans Bold",
+  "fichier": "open-sans-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Open Sans|800",
+  "famille": "Open Sans",
+  "graisse": 800,
+  "nom": "Open Sans ExtraBold",
+  "fichier": "open-sans-800.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Montserrat|400",
+  "famille": "Montserrat",
+  "graisse": 400,
+  "nom": "Montserrat Regular",
+  "fichier": "montserrat-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Montserrat|700",
+  "famille": "Montserrat",
+  "graisse": 700,
+  "nom": "Montserrat Bold",
+  "fichier": "montserrat-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Montserrat|900",
+  "famille": "Montserrat",
+  "graisse": 900,
+  "nom": "Montserrat Black",
+  "fichier": "montserrat-900.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Lato|400",
+  "famille": "Lato",
+  "graisse": 400,
+  "nom": "Lato Regular",
+  "fichier": "lato-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Lato|700",
+  "famille": "Lato",
+  "graisse": 700,
+  "nom": "Lato Bold",
+  "fichier": "lato-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Lato|900",
+  "famille": "Lato",
+  "graisse": 900,
+  "nom": "Lato Black",
+  "fichier": "lato-900.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Poppins|400",
+  "famille": "Poppins",
+  "graisse": 400,
+  "nom": "Poppins Regular",
+  "fichier": "poppins-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Poppins|700",
+  "famille": "Poppins",
+  "graisse": 700,
+  "nom": "Poppins Bold",
+  "fichier": "poppins-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Poppins|900",
+  "famille": "Poppins",
+  "graisse": 900,
+  "nom": "Poppins Black",
+  "fichier": "poppins-900.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Inter|400",
+  "famille": "Inter",
+  "graisse": 400,
+  "nom": "Inter Regular",
+  "fichier": "inter-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Inter|700",
+  "famille": "Inter",
+  "graisse": 700,
+  "nom": "Inter Bold",
+  "fichier": "inter-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Inter|900",
+  "famille": "Inter",
+  "graisse": 900,
+  "nom": "Inter Black",
+  "fichier": "inter-900.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Oswald|400",
+  "famille": "Oswald",
+  "graisse": 400,
+  "nom": "Oswald Regular",
+  "fichier": "oswald-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Oswald|700",
+  "famille": "Oswald",
+  "graisse": 700,
+  "nom": "Oswald Bold",
+  "fichier": "oswald-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Raleway|400",
+  "famille": "Raleway",
+  "graisse": 400,
+  "nom": "Raleway Regular",
+  "fichier": "raleway-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Raleway|700",
+  "famille": "Raleway",
+  "graisse": 700,
+  "nom": "Raleway Bold",
+  "fichier": "raleway-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Raleway|900",
+  "famille": "Raleway",
+  "graisse": 900,
+  "nom": "Raleway Black",
+  "fichier": "raleway-900.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Nunito|400",
+  "famille": "Nunito",
+  "graisse": 400,
+  "nom": "Nunito Regular",
+  "fichier": "nunito-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Nunito|700",
+  "famille": "Nunito",
+  "graisse": 700,
+  "nom": "Nunito Bold",
+  "fichier": "nunito-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Nunito|900",
+  "famille": "Nunito",
+  "graisse": 900,
+  "nom": "Nunito Black",
+  "fichier": "nunito-900.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Playfair Display|400",
+  "famille": "Playfair Display",
+  "graisse": 400,
+  "nom": "Playfair Display Regular",
+  "fichier": "playfair-display-400.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Playfair Display|700",
+  "famille": "Playfair Display",
+  "graisse": 700,
+  "nom": "Playfair Display Bold",
+  "fichier": "playfair-display-700.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Playfair Display|900",
+  "famille": "Playfair Display",
+  "graisse": 900,
+  "nom": "Playfair Display Black",
+  "fichier": "playfair-display-900.woff",
+  "cursive": false
+ },
+ {
+  "cle": "Pacifico|400",
+  "famille": "Pacifico",
+  "graisse": 400,
+  "nom": "Pacifico",
+  "fichier": "pacifico-400.woff",
+  "cursive": true
+ },
+ {
+  "cle": "Lobster|400",
+  "famille": "Lobster",
+  "graisse": 400,
+  "nom": "Lobster",
+  "fichier": "lobster-400.woff",
+  "cursive": true
+ },
+ {
+  "cle": "Leckerli One|400",
+  "famille": "Leckerli One",
+  "graisse": 400,
+  "nom": "Leckerli One",
+  "fichier": "leckerli-one-400.woff",
+  "cursive": true
+ }
+]

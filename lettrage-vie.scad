@@ -59,9 +59,9 @@ couleur_socle = "pink";
 couleur_texte = "white";
 
 /* [Hidden] */
-use <fonts/Pacifico-Regular.ttf>
-use <fonts/Lobster-Regular.ttf>
-use <fonts/LeckerliOne-Regular.ttf>
+use <fonts/ttf/Pacifico-Regular.ttf>
+use <fonts/ttf/Lobster-Regular.ttf>
+use <fonts/ttf/LeckerliOne-Regular.ttf>
 $fn = 32;
 pas_tranche = 0.5; // largeur des tranches pour la courbure (mm)
 

@@ -4,8 +4,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout : poste de contrôle, console de réglages à gauche, viewport instrumenté à droite (empilé sur mobile).
-   Thème sombre unique, assumé : c'est un outil d'atelier, pas une page de lecture. */
+/* Layout : poste de contrôle à trois colonnes : calques | plan de travail | propriétés.
+   Thème sombre unique, assumé : c'est un outil d'atelier. */
 :root {
   --bg: #0a0f14;
   --panel: #0f161d;
@@ -17,257 +17,212 @@
   --accent: #3fcfe0;
   --accent-dim: #3fcfe022;
   --stage: #070b0f;
-  --stage-fg: #8fa3b2;
   --danger: #ff6b7a;
-  --font-display: "Chakra Petch", "Eurostile", "Bank Gothic", system-ui, sans-serif;
+  --font-display: "Chakra Petch", "Eurostile", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   color-scheme: dark;
 }
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 13px; line-height: 1.45; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
 .app {
-  display: grid; grid-template-columns: minmax(300px, 390px) minmax(0, 1fr); gap: 14px;
-  min-height: 100%; padding-block: 14px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  background:
-    linear-gradient(var(--bg), var(--bg)) padding-box,
-    repeating-linear-gradient(0deg, transparent 0 23px, #ffffff05 23px 24px);
+  display: grid; height: 100%; gap: 10px;
+  grid-template-columns: 220px minmax(0, 1fr) 320px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "layers stage props";
+  padding-block: 10px;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
 }
-.controls { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-header.brand {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
-  padding: 10px 12px; border: 1px solid var(--line); background: var(--panel); border-radius: 4px;
-  border-left: 3px solid var(--accent);
+/* Barre du haut */
+.topbar {
+  grid-area: top; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid var(--line); background: var(--panel); border-radius: 4px; border-left: 3px solid var(--accent);
 }
-header.brand h1 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 20px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg); line-height: 1.1; }
-header.brand h1 span { color: var(--accent); }
-header.brand p { margin: 0; font-family: var(--font-mono); color: var(--muted); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
-header.brand p::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); margin-right: 6px; vertical-align: 1px; }
-fieldset {
-  position: relative; border: 1px solid var(--line); border-radius: 4px; background: var(--panel);
-  margin: 0; padding: 12px 12px 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+.brand { font-family: var(--font-display); font-weight: 600; font-size: 17px; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+.brand span { color: var(--accent); }
+.proj-name { flex: 1 1 160px; min-width: 120px; max-width: 280px; }
+.tools { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+/* Panneaux */
+.panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); border-radius: 4px; overflow: hidden; }
+.panel > h2 {
+  margin: 0; padding: 9px 12px; font-family: var(--font-display); font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent);
+  border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 8px;
 }
-fieldset::before, fieldset::after {
-  content: ""; position: absolute; width: 8px; height: 8px; border-color: var(--line-2); border-style: solid; pointer-events: none;
+.panel > h2 small { font-family: var(--font-mono); color: var(--muted); letter-spacing: .06em; font-size: 10px; text-transform: none; }
+.panel-body { overflow: auto; padding: 10px 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+.layers { grid-area: layers; }
+.props { grid-area: props; }
+/* Calques */
+.add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.layer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.layer {
+  display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  padding: 7px 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel-2); cursor: pointer;
 }
-fieldset::before { top: -1px; right: -1px; border-width: 1px 1px 0 0; }
-fieldset::after { bottom: -1px; left: -1px; border-width: 0 0 1px 1px; }
-legend, .lg {
-  padding: 0 6px; font-family: var(--font-display); font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent);
+.layer:hover { border-color: var(--line-2); }
+.layer[aria-selected="true"] { border-color: var(--accent); background: #3fcfe012; }
+.layer .sw { width: 12px; height: 12px; border-radius: 2px; border: 1px solid #ffffff33; }
+.layer .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer .nm small { display: block; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: .04em; }
+.layer .acts { display: flex; gap: 2px; }
+.layer.off .nm { opacity: .45; }
+.ico { border: 0; background: transparent; color: var(--muted); padding: 3px 5px; border-radius: 2px; cursor: pointer; font-family: var(--font-mono); font-size: 11px; line-height: 1; }
+.ico:hover:not(:disabled) { color: var(--accent); background: var(--accent-dim); }
+.ico:disabled { opacity: .3; cursor: default; }
+.ico.danger:hover:not(:disabled) { color: var(--danger); background: #ff6b7a1a; }
+.hint { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; }
+.kbd { font-family: var(--font-mono); font-size: 10px; border: 1px solid var(--line-2); border-radius: 2px; padding: 0 4px; color: var(--fg); }
+/* Plan de travail */
+.stage {
+  grid-area: stage; position: relative; min-width: 0; min-height: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 40%, #0f1a22 0%, var(--stage) 70%);
 }
-.lg { padding: 0; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#plan { cursor: default; }
+#plan.grab { cursor: grab; }
+#plan.move { cursor: move; }
+.stage-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.stage-top > * { pointer-events: auto; }
+.tabs { display: inline-flex; border: 1px solid var(--line-2); border-radius: 3px; overflow: hidden; background: #0a0f14cc; }
+.tabs button { border: 0; background: transparent; color: var(--muted); padding: 6px 14px; font-family: var(--font-display); font-weight: 600; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+.tabs button + button { border-left: 1px solid var(--line-2); }
+.tabs button[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); }
+.zoom { display: inline-flex; gap: 4px; }
+.status { position: absolute; top: 48px; left: 12px; right: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); pointer-events: none; }
+.status.err { color: var(--danger); }
+.hud { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; flex-wrap: wrap; pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.dims { display: flex; gap: 6px; flex-wrap: wrap; font-family: var(--font-mono); font-variant-numeric: tabular-nums; pointer-events: none; }
+.dims .m { display: flex; flex-direction: column; gap: 1px; padding: 4px 8px; border: 1px solid var(--line-2); background: #0a0f14cc; border-radius: 2px; min-width: 70px; }
+.dims .m i { font-style: normal; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.dims .m b { color: var(--fg); font-weight: 500; font-size: 12px; }
+.dims .m b small { color: var(--muted); font-size: 10px; margin-left: 2px; }
+/* Boutons */
+.btn { font-family: var(--font-display); font-weight: 600; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; border-radius: 2px; padding: 8px 12px; cursor: pointer; border: 1px solid var(--line-2); background: #0a0f14cc; color: var(--fg); white-space: nowrap; }
+.btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--accent); color: #041015; border-color: var(--accent); box-shadow: 0 0 18px #3fcfe044; }
+.btn.primary:hover:not(:disabled) { color: #041015; box-shadow: 0 0 24px #3fcfe088; }
+.btn.add { background: transparent; color: var(--accent); border: 1px dashed #3fcfe066; padding: 8px 6px; }
+.btn.sm { padding: 6px 9px; font-size: 10.5px; }
+/* Champs */
+.group { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.group:last-child { border-bottom: 0; padding-bottom: 0; }
+.group > h3 { margin: 0; font-family: var(--font-display); font-size: 10.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.field > span { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; gap: 6px; letter-spacing: .02em; }
-.field output {
-  font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums;
-  background: var(--accent-dim); padding: 0 5px; border-radius: 2px; white-space: nowrap;
+.field > span { font-size: 11px; color: var(--muted); }
+input[type="text"], input[type="number"], select {
+  width: 100%; font: inherit; color: var(--fg); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 3px; padding: 6px 8px;
 }
-input[type="text"], select {
-  width: 100%; font: inherit; color: var(--fg); background: var(--panel-2); border: 1px solid var(--line-2);
-  border-radius: 3px; padding: 7px 9px;
-}
-input[type="text"].big { font-size: 15px; font-family: var(--font-mono); letter-spacing: .02em; }
+input[type="number"] { font-family: var(--font-mono); font-size: 12px; padding: 4px 6px; text-align: right; }
+input[type="text"].big { font-size: 15px; }
 select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
   background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 26px; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+input[type="text"]:focus, input[type="number"]:focus, select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-dim); }
+.num { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 8px; align-items: center; }
+.num .u { position: relative; }
+.num .u::after { content: attr(data-u); position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-family: var(--font-mono); font-size: 10px; color: var(--muted); pointer-events: none; }
+.num .u input { padding-right: 24px; }
 input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 16px; background: transparent; margin: 0; cursor: pointer; }
-input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: linear-gradient(90deg, var(--line-2), var(--line-2)); border-radius: 0; }
+input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: var(--line-2); }
 input[type="range"]::-moz-range-track { height: 2px; background: var(--line-2); }
 input[type="range"]::-moz-range-progress { height: 2px; background: var(--accent); }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 14px; margin-top: -6px; background: var(--accent); border: 0; border-radius: 1px; box-shadow: 0 0 0 3px #3fcfe01f, 0 0 10px #3fcfe066; }
-input[type="range"]::-moz-range-thumb { width: 10px; height: 14px; background: var(--accent); border: 0; border-radius: 1px; box-shadow: 0 0 0 3px #3fcfe01f, 0 0 10px #3fcfe066; }
-input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2); border-radius: 3px; background: var(--panel-2); padding: 3px; cursor: pointer; }
-input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; box-shadow: 0 0 0 3px var(--accent-dim); }
-input[type="text"]:focus, select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-dim); }
-.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 3px; overflow: hidden; align-self: flex-start; }
-.seg button { font: inherit; font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; border: 0; background: var(--panel-2); color: var(--muted); padding: 6px 12px; cursor: pointer; }
+input[type="range"]::-moz-range-thumb { width: 10px; height: 14px; background: var(--accent); border: 0; border-radius: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 3px; overflow: hidden; align-self: flex-start; flex-wrap: wrap; }
+.seg button { font-family: var(--font-mono); font-size: 11px; border: 0; background: var(--panel-2); color: var(--muted); padding: 6px 11px; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--line-2); }
 .seg button[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); }
-.switch { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 12px; color: var(--fg); }
-.switch input { appearance: none; -webkit-appearance: none; width: 30px; height: 16px; border-radius: 8px; background: var(--line-2); position: relative; margin: 0; cursor: pointer; transition: background .15s; flex: none; }
-.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+.fil { display: flex; gap: 6px; }
+.fil button { width: 34px; height: 30px; border-radius: 3px; border: 1px solid var(--line-2); cursor: pointer; position: relative; font-family: var(--font-mono); font-size: 10px; color: #000a; font-weight: 600; }
+.fil button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.colors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.colors label { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); text-align: center; }
+input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2); border-radius: 3px; background: var(--panel-2); padding: 3px; cursor: pointer; }
+.switch { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 12px; }
+.switch input { appearance: none; -webkit-appearance: none; width: 30px; height: 16px; border-radius: 8px; background: var(--line-2); position: relative; margin: 0; cursor: pointer; flex: none; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform .15s; }
 .switch input:checked { background: #3fcfe055; }
 .switch input:checked::after { transform: translateX(14px); background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-.sub { display: flex; flex-direction: column; gap: 10px; padding-left: 10px; border-left: 1px dashed var(--line-2); }
-.lines { display: flex; flex-direction: column; gap: 8px; }
-.line-body { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
-.line-tools { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid var(--line); margin-top: 2px; padding-top: 10px; }
-.mini { font: inherit; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line-2); background: transparent; color: var(--fg); border-radius: 2px; padding: 5px 8px; cursor: pointer; }
-.mini:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.mini:disabled { opacity: .35; cursor: default; }
-.mini.danger { color: var(--danger); }
-.mini.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
-details.line > summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-details.line > summary::-webkit-details-marker { display: none; }
-details.line > summary::before { content: "+"; font-family: var(--font-mono); color: var(--muted); width: 10px; flex: none; }
-details.line[open] > summary::before { content: "−"; color: var(--accent); }
-details.line > summary .lg { margin-right: auto; }
-details.line > summary .preview { font-family: var(--font-mono); font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
-.stage-wrap {
-  position: sticky; top: calc(14px + env(safe-area-inset-top, 0px)); align-self: start; height: calc(100vh - 28px);
-  min-width: 0; min-height: 420px; border-radius: 4px; overflow: hidden;
-  background: radial-gradient(120% 90% at 50% 40%, #0f1a22 0%, var(--stage) 70%);
-  border: 1px solid var(--line);
+/* Sélecteur de police */
+.fontpick { position: relative; }
+.fontpick > button { width: 100%; text-align: left; border: 1px solid var(--line-2); background: var(--panel-2); border-radius: 3px; padding: 6px 28px 6px 9px; cursor: pointer; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fontpick > button::after { content: ""; position: absolute; right: 11px; top: 50%; width: 6px; height: 6px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); transform: translateY(-70%) rotate(45deg); }
+.fontlist { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); max-height: 300px; overflow: auto; background: var(--panel-2); border: 1px solid var(--accent); border-radius: 3px; padding: 4px; box-shadow: 0 12px 30px #000a; }
+.fontlist button { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%; border: 0; background: transparent; text-align: left; padding: 6px 8px; border-radius: 2px; cursor: pointer; font-size: 17px; }
+.fontlist button small { font-family: var(--font-mono); font-size: 10px; color: var(--muted); white-space: nowrap; }
+.fontlist button:hover, .fontlist button[aria-selected="true"] { background: var(--accent-dim); }
+.fontlist h4 { margin: 6px 8px 2px; font-family: var(--font-display); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+@media (max-width: 1000px) {
+  .app { grid-template-columns: 200px minmax(0, 1fr); grid-template-areas: "top top" "layers stage" "props props"; grid-template-rows: auto minmax(420px, 1fr) auto; height: auto; min-height: 100%; }
 }
-.stage-wrap::before, .stage-wrap::after {
-  content: ""; position: absolute; width: 18px; height: 18px; border-color: var(--accent); border-style: solid; pointer-events: none; opacity: .7; z-index: 1;
+@media (max-width: 680px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "layers" "props"; grid-template-rows: auto 420px auto auto; }
+  .tools .btn { padding: 7px 8px; }
 }
-.stage-wrap::before { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
-.stage-wrap::after { bottom: 8px; right: 8px; border-width: 0 1px 1px 0; }
-#stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-.tag {
-  position: absolute; top: 14px; right: 16px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--stage-fg); pointer-events: none;
-}
-.hud {
-  position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end;
-  gap: 12px; flex-wrap: wrap; pointer-events: none;
-}
-.dims { display: flex; gap: 6px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 10.5px; color: var(--stage-fg); font-variant-numeric: tabular-nums; }
-.dims .m { display: flex; flex-direction: column; gap: 1px; padding: 5px 9px; border: 1px solid var(--line-2); background: #0a0f14cc; border-radius: 2px; min-width: 76px; }
-.dims .m i { font-style: normal; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-.dims .m b { color: var(--fg); font-weight: 500; font-size: 13px; }
-.dims .m b small { color: var(--muted); font-size: 10px; margin-left: 2px; }
-.actions { display: flex; gap: 6px; pointer-events: auto; flex-wrap: wrap; }
-.btn { font: inherit; font-family: var(--font-display); font-weight: 600; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; border-radius: 2px; padding: 10px 14px; cursor: pointer; border: 1px solid transparent; }
-.btn.primary { background: var(--accent); color: #041015; box-shadow: 0 0 18px #3fcfe044; }
-.btn.primary:hover:not(:disabled) { box-shadow: 0 0 24px #3fcfe088; }
-.btn.ghost { background: #0a0f14cc; color: var(--stage-fg); border-color: var(--line-2); }
-.btn.ghost:hover { color: var(--accent); border-color: var(--accent); }
-.btn.add { background: transparent; color: var(--accent); border: 1px dashed #3fcfe066; }
-.btn.add:hover:not(:disabled) { background: var(--accent-dim); }
-.btn.add:disabled { color: var(--muted); border-color: var(--line-2); cursor: default; }
-.btn:disabled { opacity: .5; cursor: progress; }
-.status { position: absolute; top: 14px; left: 34px; right: 140px; font-family: var(--font-mono); font-size: 11px; color: var(--stage-fg); pointer-events: none; letter-spacing: .02em; }
-.status.err { color: var(--danger); }
-.note { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; }
-@media (max-width: 760px) {
-  .app { grid-template-columns: minmax(0, 1fr); }
-  .stage-wrap { order: -1; position: relative; top: 0; height: 460px; min-height: 0; }
-  .hud { left: 10px; right: 10px; bottom: 10px; gap: 8px; }
-  .dims .m { min-width: 0; padding: 3px 6px; }
-  .dims .m b { font-size: 11px; }
-  .btn { padding: 7px 9px; font-size: 10.5px; }
-  .tag { display: none; }
-  .status { right: 16px; }
-}
-@media (prefers-reduced-motion: reduce) { .switch input, .switch input::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .switch input::after { transition: none; } }
 </style>
 
 <div class="app">
-  <form class="controls" id="form" autocomplete="off">
-    <header class="brand">
-      <h1>Lettrage <span>Vié</span></h1>
-      <p>Relief 2 couleurs · AMS</p>
-    </header>
-    <div id="lines" class="lines"></div>
-    <button type="button" class="btn add" id="btn-add">Ajouter une ligne</button>
+  <header class="topbar">
+    <div class="brand">Lettrage <span>Vié</span></div>
+    <input type="text" class="proj-name" id="proj-name" aria-label="Nom du projet" maxlength="60">
+    <div class="tools">
+      <button type="button" class="btn sm" id="btn-undo" title="Annuler (Ctrl+Z)">Annuler</button>
+      <button type="button" class="btn sm" id="btn-redo" title="Rétablir (Ctrl+Maj+Z)">Rétablir</button>
+      <button type="button" class="btn sm" id="btn-new">Nouveau</button>
+      <button type="button" class="btn sm" id="btn-open">Ouvrir</button>
+      <button type="button" class="btn sm" id="btn-save">Enregistrer</button>
+      <button type="button" class="btn primary" id="btn-export">Exporter 3MF + STL</button>
+      <input type="file" id="file-open" accept=".json,application/json" hidden>
+    </div>
+  </header>
 
-    <fieldset>
-      <legend>Mise en page</legend>
-      <div class="row">
-        <label class="field"><span>Interligne <output id="o-interligne"></output></span>
-          <input type="range" id="interligne" min="-15" max="20" step="0.5" value="1"></label>
-        <label class="field"><span>Espacement <output id="o-espacement"></output></span>
-          <input type="range" id="espacement" min="-0.1" max="0.3" step="0.005" value="0"></label>
+  <section class="panel layers" aria-label="Calques">
+    <h2>Calques <small id="layer-count"></small></h2>
+    <div class="panel-body">
+      <div class="add-row">
+        <button type="button" class="btn add" id="add-texte">+ Texte</button>
+        <button type="button" class="btn add" id="add-fond">+ Lettre de fond</button>
       </div>
-    </fieldset>
+      <ul class="layer-list" id="layer-list" role="listbox" aria-label="Éléments du projet"></ul>
+      <p class="hint">Clique un élément sur le plan pour le sélectionner. Glisse pour le déplacer, la poignée ronde le tourne, la poignée carrée l'agrandit. <span class="kbd">Maj</span> aimante la rotation par 15°.</p>
+      <p class="hint"><span class="kbd">Suppr</span> supprime, <span class="kbd">Ctrl D</span> duplique, les flèches déplacent de 1 mm (10 mm avec <span class="kbd">Maj</span>).</p>
+    </div>
+  </section>
 
-    <fieldset>
-      <legend>Texte de face</legend>
-      <label class="field"><span>Relief du texte <output id="o-relief"></output></span>
-        <input type="range" id="relief" min="0.2" max="60" step="0.2" value="1.2"></label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Contour sous le texte</legend>
-      <label class="switch"><input type="checkbox" id="contour_on"><span>Ajouter un contour</span></label>
-      <div class="sub" id="contour-opts">
-        <div class="row">
-          <label class="field"><span>Épaisseur <output id="o-ep_contour"></output></span>
-            <input type="range" id="ep_contour" min="0.6" max="30" step="0.2" value="3"></label>
-          <label class="field"><span>Largeur autour des lettres <output id="o-largeur"></output></span>
-            <input type="range" id="largeur" min="0.4" max="10" step="0.1" value="1.6"></label>
-        </div>
-        <label class="field"><span>Comblement entre lettres <output id="o-lissage"></output></span>
-          <input type="range" id="lissage" min="0" max="10" step="0.5" value="1"></label>
-        <label class="field"><span>Arrière du contour</span>
-          <select id="arriere"><option value="plein">Plein</option><option value="creux">Creux (enseigne)</option></select></label>
-        <div class="sub" id="creux-opts">
-          <div class="row">
-            <label class="field"><span>Épaisseur des parois <output id="o-paroi"></output></span>
-              <input type="range" id="paroi" min="0.4" max="6" step="0.1" value="1.6"></label>
-            <label class="field"><span>Face avant <output id="o-capot"></output></span>
-              <input type="range" id="capot" min="0.4" max="6" step="0.2" value="1.6"></label>
-          </div>
-          <label class="field"><span>Fond arrière <output id="o-fond"></output></span>
-            <input type="range" id="fond" min="0" max="6" step="0.2" value="0"></label>
-          <p class="note">La face avant est imprimée en pont au-dessus du vide : au-delà d'environ 20 mm de portée, active les supports.</p>
-        </div>
+  <main class="stage" id="stage">
+    <canvas id="plan" aria-label="Plan de travail vu de dessus"></canvas>
+    <canvas id="view3d" aria-label="Aperçu 3D" hidden></canvas>
+    <div class="stage-top">
+      <div class="tabs" role="group" aria-label="Vue">
+        <button type="button" id="tab-plan" aria-pressed="true">Plan</button>
+        <button type="button" id="tab-3d" aria-pressed="false">3D</button>
       </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>Chiffre de fond</legend>
-      <label class="switch"><input type="checkbox" id="chiffre_on"><span>Ajouter un chiffre ou un texte de fond</span></label>
-      <div class="sub" id="chiffre-opts">
-        <div class="row">
-          <label class="field"><span>Texte</span><input type="text" id="chiffre" value="10" maxlength="8"></label>
-          <label class="field"><span>Police</span><select id="police_chiffre"></select></label>
-        </div>
-        <div class="row">
-          <label class="field"><span>Hauteur <output id="o-taille_chiffre"></output></span>
-            <input type="range" id="taille_chiffre" min="10" max="250" step="1" value="62"></label>
-          <label class="field"><span>Épaisseur <output id="o-ep_fond"></output></span>
-            <input type="range" id="ep_fond" min="0.6" max="30" step="0.2" value="2"></label>
-        </div>
-        <div class="row">
-          <label class="field"><span>Décalage X <output id="o-dx"></output></span>
-            <input type="range" id="dx" min="-150" max="150" step="1" value="0"></label>
-          <label class="field"><span>Décalage Y <output id="o-dy"></output></span>
-            <input type="range" id="dy" min="-150" max="150" step="1" value="-4"></label>
-        </div>
-        <label class="field"><span>Arrière du chiffre</span>
-          <select id="arriere_chiffre"><option value="plein">Plein</option><option value="creux">Creux (enseigne)</option></select></label>
-        <div class="sub" id="creux-chiffre-opts">
-          <div class="row">
-            <label class="field"><span>Épaisseur des parois <output id="o-paroi_chiffre"></output></span>
-              <input type="range" id="paroi_chiffre" min="0.4" max="6" step="0.1" value="1.6"></label>
-            <label class="field"><span>Face avant <output id="o-capot_chiffre"></output></span>
-              <input type="range" id="capot_chiffre" min="0.4" max="6" step="0.2" value="1.6"></label>
-          </div>
-          <label class="field"><span>Fond arrière <output id="o-fond_chiffre"></output></span>
-            <input type="range" id="fond_chiffre" min="0" max="6" step="0.2" value="0"></label>
-        </div>
+      <div class="zoom" id="zoom-plan">
+        <button type="button" class="btn sm" id="z-out" aria-label="Dézoomer">−</button>
+        <button type="button" class="btn sm" id="z-fit">Ajuster</button>
+        <button type="button" class="btn sm" id="z-in" aria-label="Zoomer">+</button>
       </div>
-    </fieldset>
-
-    <fieldset>
-      <legend>Couleurs de l'aperçu</legend>
-      <div class="row">
-        <label class="field"><span>Socle</span><input type="color" id="c_socle" value="#f4b6c8"></label>
-        <label class="field"><span>Texte</span><input type="color" id="c_texte" value="#ffffff"></label>
-      </div>
-      <p class="note">L'export contient un 3MF dont les pièces sont nommées « Socle » et « Texte », à assigner à tes filaments AMS, et un STL par couleur en secours.</p>
-    </fieldset>
-  </form>
-
-  <div class="stage-wrap">
-    <canvas id="stage" aria-label="Aperçu 3D du lettrage"></canvas>
-    <div class="status" id="status" role="status"></div>
-    <div class="tag">Plateau 260 × 260 · grille 10 mm</div>
-    <div class="hud">
-      <div class="dims" id="dims"></div>
-      <div class="actions">
-        <button type="button" class="btn ghost" id="btn-back">Vue arrière</button>
-        <button type="button" class="btn ghost" id="btn-reset">Vue de face</button>
-        <button type="button" class="btn primary" id="btn-export">Exporter 3MF + STL</button>
+      <div class="zoom" id="zoom-3d" hidden>
+        <button type="button" class="btn sm" id="v-face">Face</button>
+        <button type="button" class="btn sm" id="v-back">Arrière</button>
       </div>
     </div>
-  </div>
+    <div class="status" id="status" role="status"></div>
+    <div class="hud"><div class="dims" id="dims"></div></div>
+  </main>
+
+  <section class="panel props" aria-label="Propriétés">
+    <h2 id="props-title">Projet</h2>
+    <div class="panel-body" id="props-body"></div>
+  </section>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -276,243 +231,48 @@ details.line > summary .preview { font-family: var(--font-mono); font-size: 11px
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <script>
-/* Polices OFL embarquées (Pacifico, Lobster, Leckerli One) */
-const FONT_DATA = /*FONTS*/{};
+/* Polices OFL embarquées (voir fonts/polices.json) */
+const FONT_DATA = /*FONTS*/[];
 </script>
 <script>
 (() => {
   "use strict";
   const S = 1000; // Clipper travaille en entiers : 1 mm = 1000 unités
   const CL = ClipperLib;
-  const FONT_NAMES = ["Pacifico", "Lobster", "Leckerli One"];
-  const fonts = {};
-  for (const name of FONT_NAMES) {
-    const bin = atob(FONT_DATA[name]);
-    const buf = new Uint8Array(bin.length);
+  const STORE_KEY = "lettrage-vie-projet";
+  const PLATE = 256;
+
+  // ---------- Polices ----------
+  const FONTS = {};
+  const FONT_LIST = [];
+  function b64ToBuffer(b64) {
+    const bin = atob(b64), buf = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-    fonts[name] = opentype.parse(buf.buffer);
+    return buf.buffer;
   }
+  for (const f of FONT_DATA) {
+    const buf = b64ToBuffer(f.data);
+    FONTS[f.cle] = opentype.parse(buf);
+    FONT_LIST.push({ cle: f.cle, nom: f.nom, famille: f.famille, graisse: f.graisse, cursive: f.cursive, css: "LV " + f.cle.replace("|", " ") });
+    // Aperçu des polices dans le sélecteur ; sans effet si le navigateur refuse
+    try { const ff = new FontFace("LV " + f.cle.replace("|", " "), buf.slice(0)); ff.load().then(x => document.fonts.add(x)).catch(() => {}); } catch (e) { /* ignoré */ }
+  }
+  const fontOf = cle => FONTS[cle] || FONTS["Pacifico|400"] || Object.values(FONTS)[0];
+  const fontInfo = cle => FONT_LIST.find(f => f.cle === cle) || FONT_LIST[0];
 
-  // ---------- Formulaire ----------
-  const DEFAULT_LINES = [
-    { texte: "Happy Birthday", police: "Pacifico", taille: 11, rayon: 0, sens: "haut" },
-    { texte: "to you", police: "Pacifico", taille: 7, rayon: 0, sens: "haut" },
-    { texte: "Elena", police: "Pacifico", taille: 14, rayon: 0, sens: "haut" },
-  ];
-  const MAX_LINES = 12;
-  const linesEl = document.getElementById("lines");
-  const fontOptions = FONT_NAMES.map(f => `<option value="${f}">${f}</option>`).join("");
-  document.getElementById("police_chiffre").innerHTML = fontOptions;
-
-  let uidSeq = 0;
-  const newLine = d => ({ uid: ++uidSeq, texte: "", police: "Pacifico", taille: 10, rayon: 0, sens: "haut", tx: 0, ty: 0, rot: 0, ...d });
-  const state = {};
-  function defaults() {
-    return { lines: DEFAULT_LINES.map(newLine), interligne: 1, espacement: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
-      arriere_chiffre: "plein", paroi_chiffre: 1.6, capot_chiffre: 1.6, fond_chiffre: 0,
-      contour_on: true, chiffre_on: true, chiffre: "10", police_chiffre: "Leckerli One",
-      taille_chiffre: 62, dx: 0, dy: -4, ep_fond: 2, ep_contour: 3, relief: 1.2, largeur: 1.6, lissage: 1,
-      c_socle: "#f4b6c8", c_texte: "#ffffff" };
-  }
-  Object.assign(state, defaults());
-  try {
-    // Repli sur la clé de l'ancien nom (Atelier Topper) pour garder les réglages
-    const saved = JSON.parse(localStorage.getItem("lettrage-vie") || localStorage.getItem("atelier-topper") || "null");
-    if (saved && typeof saved === "object") {
-      for (const k in saved) if (k in state && k !== "lines") state[k] = saved[k];
-      if (Array.isArray(saved.lines)) state.lines = saved.lines.slice(0, MAX_LINES).map(l => newLine({ ...l, uid: undefined }));
-      else if ("l1_texte" in saved) {
-        // Réglages enregistrés par la version à 3 lignes fixes
-        state.lines = [1, 2, 3].map(n => newLine({ texte: saved[`l${n}_texte`], police: saved[`l${n}_police`],
-          taille: saved[`l${n}_taille`], rayon: saved[`l${n}_rayon`], sens: saved[`l${n}_sens`] }));
-      }
-      state.lines.forEach(l => { if (!l.uid) l.uid = ++uidSeq; });
-    }
-  } catch (e) { /* stockage indisponible : on garde les valeurs par défaut */ }
-
-  const fmtRayon = v => (+v === 0 ? "droit" : `${v} mm`);
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  function outFor(id, v) {
-    const o = document.getElementById("o-" + id);
-    if (!o) return;
-    if (id === "espacement") o.value = `${(+v).toFixed(3)} em`;
-    else if ((id === "fond" || id === "fond_chiffre") && +v === 0) o.value = "ouvert";
-    else if (/^(taille_chiffre|dx|dy)$/.test(id)) o.value = `${(+v).toFixed(0)} mm`;
-    else o.value = `${(+v).toFixed(1)} mm`;
-  }
-  const openLines = new Set();
-  function renderLines() {
-    const n = state.lines.length;
-    linesEl.innerHTML = state.lines.map((l, i) => {
-      const id = `line${l.uid}`;
-      return `<fieldset class="line-card" data-uid="${l.uid}">
-      <details class="line" ${openLines.has(l.uid) ? "open" : ""}>
-        <summary><span class="lg">Ligne ${i + 1}</span><span class="preview" id="p-${id}">${esc(l.texte || "vide")}</span></summary>
-        <div class="line-body">
-          <label class="field"><span>Texte</span><input type="text" class="big" id="${id}-texte" data-k="texte" value="${esc(l.texte)}"></label>
-          <div class="row">
-            <label class="field"><span>Police</span><select id="${id}-police" data-k="police">${fontOptions}</select></label>
-            <label class="field"><span>Hauteur <output id="o-${id}-taille">${(+l.taille).toFixed(1)} mm</output></span>
-              <input type="range" id="${id}-taille" data-k="taille" min="3" max="200" step="0.5" value="${l.taille}"></label>
-          </div>
-          <label class="field"><span>Rayon de l'arc <output id="o-${id}-rayon">${fmtRayon(l.rayon)}</output></span>
-            <input type="range" id="${id}-rayon" data-k="rayon" min="0" max="600" step="5" value="${l.rayon}"></label>
-          <div class="field"><span>Sens de l'arc</span>
-            <div class="seg" role="group" aria-label="Sens de l'arc, ligne ${i + 1}">
-              <button type="button" data-act="sens" data-sens="haut" aria-pressed="${l.sens === "haut"}">Vers le haut</button>
-              <button type="button" data-act="sens" data-sens="bas" aria-pressed="${l.sens === "bas"}">Vers le bas</button>
-            </div>
-          </div>
-          <div class="row">
-            <label class="field"><span>Décalage X <output id="o-${id}-tx">${(+l.tx).toFixed(1)} mm</output></span>
-              <input type="range" id="${id}-tx" data-k="tx" min="-150" max="150" step="0.5" value="${l.tx}"></label>
-            <label class="field"><span>Décalage Y <output id="o-${id}-ty">${(+l.ty).toFixed(1)} mm</output></span>
-              <input type="range" id="${id}-ty" data-k="ty" min="-150" max="150" step="0.5" value="${l.ty}"></label>
-          </div>
-          <label class="field"><span>Rotation <output id="o-${id}-rot">${(+l.rot).toFixed(0)}°</output></span>
-            <input type="range" id="${id}-rot" data-k="rot" min="-180" max="180" step="1" value="${l.rot}"></label>
-          <div class="line-tools">
-            <button type="button" class="mini" data-act="up" ${i === 0 ? "disabled" : ""} aria-label="Monter la ligne ${i + 1}">Monter</button>
-            <button type="button" class="mini" data-act="down" ${i === n - 1 ? "disabled" : ""} aria-label="Descendre la ligne ${i + 1}">Descendre</button>
-            <button type="button" class="mini" data-act="dup" ${n >= MAX_LINES ? "disabled" : ""}>Dupliquer</button>
-            <button type="button" class="mini danger" data-act="del" ${n <= 1 ? "disabled" : ""}>Supprimer</button>
-          </div>
-        </div>
-      </details></fieldset>`;
-    }).join("");
-    state.lines.forEach(l => { document.getElementById(`line${l.uid}-police`).value = l.police; });
-    const add = document.getElementById("btn-add");
-    add.disabled = n >= MAX_LINES;
-    add.textContent = n >= MAX_LINES ? `Maximum ${MAX_LINES} lignes` : "Ajouter une ligne";
-  }
-  function syncForm() {
-    for (const k in state) {
-      if (k === "lines") continue;
-      const el = document.getElementById(k);
-      if (!el) continue;
-      if (el.type === "checkbox") el.checked = !!state[k];
-      else { el.value = state[k]; outFor(k, state[k]); }
-    }
-    renderLines();
-    visibility();
-  }
-  function visibility() {
-    document.getElementById("creux-opts").hidden = state.arriere !== "creux";
-    document.getElementById("creux-chiffre-opts").hidden = state.arriere_chiffre !== "creux";
-    document.getElementById("contour-opts").hidden = !state.contour_on;
-    document.getElementById("chiffre-opts").hidden = !state.chiffre_on;
-  }
-  if (state.lines.length) openLines.add(state.lines[0].uid);
-  syncForm();
-
-  const lineOf = el => {
-    const card = el.closest(".line-card");
-    if (!card) return null;
-    const uid = +card.dataset.uid;
-    return state.lines.find(l => l.uid === uid) || null;
-  };
-  document.getElementById("form").addEventListener("input", e => {
-    const el = e.target;
-    const line = lineOf(el);
-    if (line && el.dataset.k) {
-      const k = el.dataset.k;
-      line[k] = el.type === "range" ? parseFloat(el.value) : el.value;
-      const id = `line${line.uid}`;
-      if (k === "texte") document.getElementById(`p-${id}`).textContent = el.value || "vide";
-      if (k === "taille") document.getElementById(`o-${id}-taille`).value = `${(+el.value).toFixed(1)} mm`;
-      if (k === "rayon") document.getElementById(`o-${id}-rayon`).value = fmtRayon(el.value);
-      if (k === "tx" || k === "ty") document.getElementById(`o-${id}-${k}`).value = `${(+el.value).toFixed(1)} mm`;
-      if (k === "rot") document.getElementById(`o-${id}-rot`).value = `${(+el.value).toFixed(0)}°`;
-      schedule();
-      return;
-    }
-    if (!el.id || !(el.id in state)) return;
-    state[el.id] = el.type === "range" ? parseFloat(el.value) : el.type === "checkbox" ? el.checked : el.value;
-    if (el.type === "range") outFor(el.id, el.value);
-    visibility();
-    schedule();
-  });
-  linesEl.addEventListener("toggle", e => {
-    const card = e.target.closest && e.target.closest(".line-card");
-    if (!card) return;
-    const uid = +card.dataset.uid;
-    if (e.target.open) openLines.add(uid); else openLines.delete(uid);
-  }, true);
-  linesEl.addEventListener("click", e => {
-    const btn = e.target.closest("button[data-act]");
-    if (!btn) return;
-    const line = lineOf(btn);
-    const i = state.lines.indexOf(line);
-    if (i < 0) return;
-    const act = btn.dataset.act;
-    if (act === "sens") line.sens = btn.dataset.sens;
-    else if (act === "up" && i > 0) state.lines.splice(i - 1, 0, state.lines.splice(i, 1)[0]);
-    else if (act === "down" && i < state.lines.length - 1) state.lines.splice(i + 1, 0, state.lines.splice(i, 1)[0]);
-    else if (act === "del" && state.lines.length > 1) { state.lines.splice(i, 1); openLines.delete(line.uid); }
-    else if (act === "dup" && state.lines.length < MAX_LINES) {
-      const copy = newLine({ ...line, uid: undefined });
-      copy.uid = ++uidSeq;
-      state.lines.splice(i + 1, 0, copy);
-      openLines.add(copy.uid);
-    }
-    renderLines();
-    const again = linesEl.querySelector(`.line-card[data-uid="${line.uid}"] button[data-act="${act}"]`);
-    if (again && !again.disabled) again.focus();
-    schedule();
-  });
-  document.getElementById("btn-add").addEventListener("click", () => {
-    if (state.lines.length >= MAX_LINES) return;
-    const last = state.lines[state.lines.length - 1];
-    const l = newLine({ police: last ? last.police : "Pacifico", taille: last ? last.taille : 10 });
-    l.uid = ++uidSeq;
-    state.lines.push(l);
-    openLines.add(l.uid);
-    renderLines();
-    const input = document.getElementById(`line${l.uid}-texte`);
-    if (input) input.focus();
-    schedule();
-  });
-  document.getElementById("form").addEventListener("submit", e => e.preventDefault());
-
-  // ---------- Géométrie 2D ----------
-  function bezier(p0, p1, p2, p3, t) {
-    const u = 1 - t;
-    if (p3 === null) return u * u * p0 + 2 * u * t * p1 + t * t * p2;
-    return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
-  }
-  // Contours d'un texte en mm (y vers le haut), au format Clipper
-  function textPaths(text, fontName, capMm, letterSpacing) {
-    const font = fonts[fontName];
-    const cap = (font.tables.os2 && font.tables.os2.sCapHeight) || font.unitsPerEm * 0.7;
-    const size = capMm * font.unitsPerEm / cap;
-    const path = font.getPath(text, 0, 0, size, { kerning: true, letterSpacing });
-    const paths = [];
-    let cur = [], x = 0, y = 0;
-    const push = (px, py) => cur.push({ X: Math.round(px * S), Y: Math.round(-py * S) });
-    const close = () => { if (cur.length > 2) paths.push(cur); cur = []; };
-    for (const c of path.commands) {
-      if (c.type === "M") { close(); push(c.x, c.y); x = c.x; y = c.y; }
-      else if (c.type === "L") { push(c.x, c.y); x = c.x; y = c.y; }
-      else if (c.type === "Q" || c.type === "C") {
-        const n = 10;
-        for (let i = 1; i <= n; i++) {
-          const t = i / n;
-          if (c.type === "Q") push(bezier(x, c.x1, c.x, null, t), bezier(y, c.y1, c.y, null, t));
-          else push(bezier(x, c.x1, c.x2, c.x, t), bezier(y, c.y1, c.y2, c.y, t));
-        }
-        x = c.x; y = c.y;
-      } else if (c.type === "Z") close();
-    }
-    close();
-    return union(paths, CL.PolyFillType.pftNonZero);
-  }
-  function union(paths, fill = CL.PolyFillType.pftNonZero) {
+  // ---------- Géométrie 2D (Clipper) ----------
+  const NZ = CL.PolyFillType.pftNonZero;
+  function clip(type, a, b) {
     const c = new CL.Clipper();
-    c.AddPaths(paths, CL.PolyType.ptSubject, true);
+    c.AddPaths(a, CL.PolyType.ptSubject, true);
+    if (b && b.length) c.AddPaths(b, CL.PolyType.ptClip, true);
     const out = new CL.Paths();
-    c.Execute(CL.ClipType.ctUnion, out, fill, fill);
+    c.Execute(type, out, NZ, NZ);
     return out;
   }
+  const union = a => (a.length ? clip(CL.ClipType.ctUnion, a) : []);
+  const inter = (a, b) => (a.length && b.length ? clip(CL.ClipType.ctIntersection, a, b) : []);
+  const diff = (a, b) => (!a.length ? [] : !b.length ? a : clip(CL.ClipType.ctDifference, a, b));
   function offset(paths, mm) {
     if (!paths.length || mm === 0) return paths;
     const co = new CL.ClipperOffset(2, 0.02 * S);
@@ -528,13 +288,42 @@ const FONT_DATA = /*FONTS*/{};
     }
     return x0 === Infinity ? null : { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
   }
-  // Rotation autour du centre de la ligne (degrés, sens trigonométrique)
+  const translate = (paths, dx, dy) => paths.map(p => p.map(q => ({ X: q.X + dx, Y: q.Y + dy })));
   function rotate(paths, deg) {
-    const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
-    return paths.map(p => p.map(q => ({ X: Math.round(q.X * c - q.Y * sn), Y: Math.round(q.X * sn + q.Y * c) })));
+    if (!deg) return paths;
+    const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return paths.map(p => p.map(q => ({ X: Math.round(q.X * c - q.Y * s), Y: Math.round(q.X * s + q.Y * c) })));
   }
-  function translate(paths, dx, dy) { return paths.map(p => p.map(q => ({ X: q.X + dx, Y: q.Y + dy }))); }
-  // Découpe les segments longs pour que la courbure reste lisse
+  function bez(p0, p1, p2, p3, t) {
+    const u = 1 - t;
+    if (p3 === null) return u * u * p0 + 2 * u * t * p1 + t * t * p2;
+    return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+  }
+  // Contours d'un texte, en unités Clipper, hauteur des majuscules = capMm
+  function textPaths(text, cle, capMm, letterSpacing) {
+    const font = fontOf(cle);
+    const cap = (font.tables.os2 && font.tables.os2.sCapHeight) || font.unitsPerEm * 0.7;
+    const size = capMm * font.unitsPerEm / cap;
+    const path = font.getPath(text, 0, 0, size, { kerning: true, letterSpacing: letterSpacing || 0 });
+    const paths = [];
+    let cur = [], x = 0, y = 0;
+    const push = (px, py) => cur.push({ X: Math.round(px * S), Y: Math.round(-py * S) });
+    const close = () => { if (cur.length > 2) paths.push(cur); cur = []; };
+    for (const c of path.commands) {
+      if (c.type === "M") { close(); push(c.x, c.y); x = c.x; y = c.y; }
+      else if (c.type === "L") { push(c.x, c.y); x = c.x; y = c.y; }
+      else if (c.type === "Q" || c.type === "C") {
+        for (let i = 1; i <= 10; i++) {
+          const t = i / 10;
+          if (c.type === "Q") push(bez(x, c.x1, c.x, null, t), bez(y, c.y1, c.y, null, t));
+          else push(bez(x, c.x1, c.x2, c.x, t), bez(y, c.y1, c.y2, c.y, t));
+        }
+        x = c.x; y = c.y;
+      } else if (c.type === "Z") close();
+    }
+    close();
+    return union(paths);
+  }
   function densify(paths, maxMm) {
     const m = maxMm * S;
     return paths.map(p => {
@@ -542,216 +331,845 @@ const FONT_DATA = /*FONTS*/{};
       for (let i = 0; i < p.length; i++) {
         const a = p[i], b = p[(i + 1) % p.length];
         out.push(a);
-        const d = Math.hypot(b.X - a.X, b.Y - a.Y);
-        const n = Math.floor(d / m);
-        for (let k = 1; k <= n; k++) {
-          const t = k / (n + 1);
-          out.push({ X: a.X + (b.X - a.X) * t, Y: a.Y + (b.Y - a.Y) * t });
-        }
+        const n = Math.floor(Math.hypot(b.X - a.X, b.Y - a.Y) / m);
+        for (let k = 1; k <= n; k++) { const t = k / (n + 1); out.push({ X: a.X + (b.X - a.X) * t, Y: a.Y + (b.Y - a.Y) * t }); }
       }
       return out;
     });
   }
-  // Enroule une ligne centrée en (0,0) sur un cercle de rayon r (mm)
   function bend(paths, rMm, sens) {
     const r = rMm * S;
     return densify(paths, 0.4).map(p => p.map(q => {
       const a = q.X / r;
-      if (sens === "bas") {
-        const d = r - q.Y;
-        return { X: Math.round(d * Math.sin(a)), Y: Math.round(r - d * Math.cos(a)) };
-      }
+      if (sens === "bas") { const d = r - q.Y; return { X: Math.round(d * Math.sin(a)), Y: Math.round(r - d * Math.cos(a)) }; }
       const d = r + q.Y;
       return { X: Math.round(d * Math.sin(a)), Y: Math.round(d * Math.cos(a) - r) };
     }));
   }
+  const centered = p => { const b = bounds(p); return b ? translate(p, -(b.x0 + b.x1) / 2, -(b.y0 + b.y1) / 2) : p; };
 
-  function build(st) {
-    const lines = [];
-    for (const ln of st.lines) {
-      const t = (ln.texte || "").trim();
-      if (!t) continue;
-      let p = textPaths(t, ln.police, ln.taille, st.espacement);
-      const b = bounds(p);
-      if (!b) continue;
-      p = translate(p, -(b.x0 + b.x1) / 2, -(b.y0 + b.y1) / 2);
-      lines.push({ paths: p, h: b.h, rayon: ln.rayon, sens: ln.sens, tx: +ln.tx || 0, ty: +ln.ty || 0, rot: +ln.rot || 0 });
+  // ---------- Modèle ----------
+  const TYPES = {
+    texte: { nom: "Texte" },
+    fond: { nom: "Lettre de fond" },
+  };
+  let seq = 1;
+  const uid = () => "e" + (seq++).toString(36) + Math.random().toString(36).slice(2, 6);
+  function newTexte(d) {
+    return { id: uid(), type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
+      relief: 1.2, contour: true, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
+  }
+  function newFond(d) {
+    return { id: uid(), type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
+      filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
+  }
+  function defaultContour() {
+    return { actif: true, epaisseur: 3, largeur: 1.6, lissage: 1, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, filament: 1 };
+  }
+  function exampleProject() {
+    return {
+      version: 2, nom: "Topper Elena",
+      filaments: ["#f4b6c8", "#ffffff", "#7d8fb3", "#e5c07b"],
+      contour: defaultContour(),
+      elements: [
+        newFond({ texte: "10", police: "Leckerli One|400", taille: 62, epaisseur: 2, y: -4 }),
+        newTexte({ texte: "Happy Birthday", taille: 11, y: 17 }),
+        newTexte({ texte: "to you", taille: 7, y: 4 }),
+        newTexte({ texte: "Elena", taille: 14, y: -11 }),
+      ],
+    };
+  }
+  let project = exampleProject();
+  let selected = null;
+
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  function sanitize(p) {
+    const base = exampleProject();
+    const out = { version: 2, nom: typeof p.nom === "string" ? p.nom.slice(0, 60) : base.nom,
+      filaments: Array.isArray(p.filaments) && p.filaments.length === 4 && p.filaments.every(c => /^#[0-9a-f]{6}$/i.test(c)) ? p.filaments.slice() : base.filaments,
+      contour: { ...defaultContour(), ...(p.contour && typeof p.contour === "object" ? p.contour : {}) },
+      elements: [] };
+    for (const e of Array.isArray(p.elements) ? p.elements.slice(0, 60) : []) {
+      if (!e || !TYPES[e.type]) continue;
+      const n = e.type === "texte" ? newTexte(e) : newFond(e);
+      n.id = uid();
+      if (!FONTS[n.police]) n.police = e.type === "texte" ? "Pacifico|400" : "Nunito|900";
+      n.texte = String(n.texte || "").slice(0, 80);
+      n.filament = clamp(Math.round(+n.filament) || 1, 1, 4);
+      out.elements.push(n);
     }
-    // Empilement sur la hauteur des lignes droites, puis courbure autour du centre de chaque ligne
-    const gap = st.interligne * S;
-    const total = lines.reduce((s, l) => s + l.h, 0) + gap * Math.max(0, lines.length - 1);
-    let top = total / 2;
-    let texte = [];
-    for (const l of lines) {
-      const cy = top - l.h / 2;
-      top -= l.h + gap;
-      let p = l.rayon > 0 ? bend(l.paths, l.rayon, l.sens) : l.paths;
-      if (l.rot) p = rotate(p, l.rot);
-      texte = texte.concat(translate(p, l.tx * S, cy + l.ty * S));
+    return out;
+  }
+  // Réglages de l'ancienne version (lignes fixes + chiffre de fond)
+  function migrateV1(s) {
+    const p = exampleProject();
+    p.nom = "Projet repris";
+    p.elements = [];
+    if (s.chiffre_on !== false && (s.chiffre || "").trim()) {
+      p.elements.push(newFond({ texte: s.chiffre, police: (s.police_chiffre || "Leckerli One") + "|400", taille: +s.taille_chiffre || 62,
+        epaisseur: +s.ep_fond || 2, x: +s.dx || 0, y: +s.dy || 0, arriere: s.arriere_chiffre || "plein",
+        paroi: +s.paroi_chiffre || 1.6, capot: +s.capot_chiffre || 1.6, fond: +s.fond_chiffre || 0 }));
     }
-    texte = union(texte);
-    let contour = st.contour_on && texte.length ? offset(offset(texte, st.lissage + st.largeur), -st.lissage) : [];
-    let chiffre = [];
-    const ch = st.chiffre_on ? (st.chiffre || "").trim() : "";
-    if (ch) {
-      chiffre = textPaths(ch, st.police_chiffre, st.taille_chiffre, 0);
-      const b = bounds(chiffre);
-      if (b) chiffre = translate(chiffre, -(b.x0 + b.x1) / 2 + st.dx * S, -(b.y0 + b.y1) / 2 + st.dy * S);
-    }
-    // Arrière creux : une paroi le long du bord, une face avant pleine dessus
-    const parois = st.arriere === "creux" && contour.length ? difference(contour, offset(contour, -st.paroi)) : null;
-    const paroisChiffre = st.arriere_chiffre === "creux" && chiffre.length
-      ? difference(chiffre, offset(chiffre, -st.paroi_chiffre)) : null;
-    return { texte, contour, chiffre, parois, paroisChiffre };
+    const lines = Array.isArray(s.lines) ? s.lines : [];
+    const gap = +s.interligne || 1;
+    const hs = lines.map(l => { const b = bounds(textPaths(String(l.texte || " "), (l.police || "Pacifico") + "|400", +l.taille || 10, +s.espacement || 0)); return b ? b.h / S : 0; });
+    let top = (hs.reduce((a, b) => a + b, 0) + gap * Math.max(0, lines.length - 1)) / 2;
+    lines.forEach((l, i) => {
+      const cy = top - hs[i] / 2; top -= hs[i] + gap;
+      if (!String(l.texte || "").trim()) return;
+      p.elements.push(newTexte({ texte: l.texte, police: (l.police || "Pacifico") + "|400", taille: +l.taille || 10, rayon: +l.rayon || 0,
+        sens: l.sens === "bas" ? "bas" : "haut", espacement: +s.espacement || 0, relief: +s.relief || 1.2,
+        x: +l.tx || 0, y: cy + (+l.ty || 0), rot: +l.rot || 0 }));
+    });
+    p.contour = { ...defaultContour(), actif: s.contour_on !== false, epaisseur: +s.ep_contour || 3, largeur: +s.largeur || 1.6,
+      lissage: s.lissage != null ? +s.lissage : 1, arriere: s.arriere || "plein", paroi: +s.paroi || 1.6, capot: +s.capot || 1.6, fond: +s.fond || 0 };
+    if (/^#[0-9a-f]{6}$/i.test(s.c_socle || "")) p.filaments[0] = s.c_socle;
+    if (/^#[0-9a-f]{6}$/i.test(s.c_texte || "")) p.filaments[1] = s.c_texte;
+    return p;
+  }
+  function loadInitial() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) return sanitize(JSON.parse(raw));
+      const old = localStorage.getItem("lettrage-vie") || localStorage.getItem("atelier-topper");
+      if (old) return sanitize(migrateV1(JSON.parse(old)));
+    } catch (e) { /* stockage indisponible ou illisible */ }
+    return exampleProject();
   }
 
-  // ---------- Extrusion 3D ----------
-  function polyTree(paths) {
+  // ---------- Formes locales (cache) et formes placées ----------
+  const localCache = new Map();
+  function localShape(e) {
+    const key = e.type === "texte"
+      ? ["t", e.texte, e.police, e.taille, e.espacement, e.rayon, e.sens].join("|")
+      : ["f", e.texte, e.police, e.taille].join("|");
+    let v = localCache.get(key);
+    if (!v) {
+      const t = String(e.texte || "").trim();
+      let p = t ? centered(textPaths(t, e.police, e.taille, e.type === "texte" ? e.espacement : 0)) : [];
+      if (e.type === "texte" && e.rayon > 0 && p.length) p = bend(p, e.rayon, e.sens);
+      v = p;
+      if (localCache.size > 300) localCache.clear();
+      localCache.set(key, v);
+    }
+    return v;
+  }
+  const placed = e => translate(rotate(localShape(e), e.rot), Math.round(e.x * S), Math.round(e.y * S));
+
+  // ---------- Composition : empilement des hauteurs ----------
+  // Champ de hauteurs = régions disjointes {paths, h}. Une couche « absolue » monte jusqu'à son
+  // sommet en se posant sur ce qui est dessous ; un texte prend le point le plus haut sous lui + son relief.
+  function compose(pr) {
+    const els = pr.elements.filter(e => e.visible !== false);
+    const pieces = []; // {filament, paths, z0, z1, creux?}
+    let field = [];
+    const fieldUnion = () => union(field.flatMap(r => r.paths));
+    function place(paths, top, filament, caisson) {
+      if (!paths.length) return;
+      for (const r of field) {
+        if (r.h >= top) continue;
+        const part = inter(paths, r.paths);
+        if (part.length) pieces.push({ filament, paths: part, z0: r.h, z1: top });
+      }
+      const free = diff(paths, fieldUnion());
+      if (free.length) pieces.push({ filament, paths: free, z0: 0, z1: top, caisson });
+      const next = [];
+      for (const r of field) {
+        const out = diff(r.paths, paths), inn = inter(r.paths, paths);
+        if (out.length) next.push({ paths: out, h: r.h });
+        if (inn.length) next.push({ paths: inn, h: Math.max(r.h, top) });
+      }
+      if (free.length) next.push({ paths: free, h: top });
+      field = next;
+    }
+    const maxUnder = paths => {
+      let h = 0;
+      for (const r of field) if (r.h > h && inter(paths, r.paths).length) h = r.h;
+      return h;
+    };
+    const fonds = els.filter(e => e.type === "fond");
+    const textes = els.filter(e => e.type === "texte");
+    const shapes = new Map(els.map(e => [e.id, placed(e)]));
+    for (const e of fonds) place(shapes.get(e.id), e.epaisseur, e.filament, e.arriere === "creux" ? e : null);
+    const c = pr.contour;
+    let contourPaths = [];
+    if (c.actif) {
+      const u = union(textes.filter(e => e.contour).flatMap(e => shapes.get(e.id)));
+      if (u.length) contourPaths = offset(offset(u, c.lissage + c.largeur), -c.lissage);
+      place(contourPaths, c.epaisseur, c.filament, c.arriere === "creux" ? c : null);
+    }
+    // Les textes se posent sur les fonds et le contour, pas les uns sur les autres ;
+    // à filaments différents, le texte du dessus (plus bas dans la liste) l'emporte.
+    const base = field;
+    textes.forEach((e, i) => {
+      let p = shapes.get(e.id);
+      const above = textes.slice(i + 1).filter(o => o.filament !== e.filament).flatMap(o => shapes.get(o.id));
+      if (above.length) p = diff(p, union(above));
+      if (!p.length) return;
+      field = base;
+      const top = maxUnder(p) + e.relief;
+      const saved = field;
+      place(p, top, e.filament, null);
+      field = saved;
+    });
+    return { pieces, shapes, contourPaths };
+  }
+
+  // ---------- Extrusion ----------
+  function toShapes(paths) {
     const c = new CL.Clipper();
     c.AddPaths(paths, CL.PolyType.ptSubject, true);
     const tree = new CL.PolyTree();
-    c.Execute(CL.ClipType.ctUnion, tree, CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
-    return tree;
-  }
-  function toShapes(paths) {
+    c.Execute(CL.ClipType.ctUnion, tree, NZ, NZ);
     const shapes = [];
     const v = q => new THREE.Vector2(q.X / S, q.Y / S);
     const walk = node => {
       for (const outer of node.Childs()) {
         const shape = new THREE.Shape(outer.Contour().map(v));
-        for (const hole of outer.Childs()) {
-          shape.holes.push(new THREE.Path(hole.Contour().map(v)));
-          walk(hole);
-        }
+        for (const hole of outer.Childs()) { shape.holes.push(new THREE.Path(hole.Contour().map(v))); walk(hole); }
         shapes.push(shape);
       }
     };
-    walk(polyTree(paths));
+    walk(tree);
     return shapes;
   }
   function extrude(paths, z0, z1) {
-    if (!paths.length || z1 <= z0) return null;
+    if (!paths.length || z1 - z0 < 0.01) return null;
     const g = new THREE.ExtrudeGeometry(toShapes(paths), { depth: z1 - z0, bevelEnabled: false, steps: 1 });
     g.translate(0, 0, z0);
     return g;
   }
-  function difference(a, b) {
-    const c = new CL.Clipper();
-    c.AddPaths(a, CL.PolyType.ptSubject, true);
-    c.AddPaths(b, CL.PolyType.ptClip, true);
-    const out = new CL.Paths();
-    c.Execute(CL.ClipType.ctDifference, out, CL.PolyFillType.pftNonZero, CL.PolyFillType.pftNonZero);
+  // Pièce pleine, ou caisson creux : parois, face avant en haut, fond arrière optionnel
+  function solidsOf(piece) {
+    const { paths, z0, z1, caisson: k } = piece;
+    if (!k) return [extrude(paths, z0, z1)];
+    const parois = diff(paths, offset(paths, -k.paroi));
+    const cap = Math.min(k.capot, z1 - z0);
+    const out = [extrude(parois, z0, z1), extrude(paths, z1 - cap, z1)];
+    if (k.fond > 0) out.push(extrude(paths, z0, Math.min(z0 + k.fond, z1 - cap)));
     return out;
   }
-  // Socle : contour et chiffre restent deux volumes fermés qui se chevauchent ;
-  // le trancheur les fusionne, chacun reste étanche.
-  // Volume plein, ou boîte creuse : parois, face avant en haut, fond arrière optionnel
-  function caisson(region, parois, h, capot, fond) {
-    if (!parois) return [extrude(region, 0, h)];
-    const c = Math.min(capot, h);
-    const out = [extrude(parois, 0, h), extrude(region, h - c, h)];
-    if (fond > 0) out.push(extrude(region, 0, Math.min(fond, h - c)));
-    return out;
-  }
-  function solids(geo, st) {
-    const socle = [
-      ...caisson(geo.contour, geo.parois, st.ep_contour, st.capot, st.fond),
-      ...caisson(geo.chiffre, geo.paroisChiffre, st.ep_fond, st.capot_chiffre, st.fond_chiffre),
-    ];
-    // Avec contour, le texte est posé dessus ; sans contour, il part du plateau
-    // (et traverse la plaque du chiffre s'il y en a une).
-    const z0 = geo.contour.length ? st.ep_contour : 0;
-    const z1 = (geo.contour.length ? st.ep_contour : geo.chiffre.length ? st.ep_fond : 0) + st.relief;
-    const texte = extrude(geo.texte, z0, z1);
-    return { socle: socle.filter(Boolean), texte: texte ? [texte] : [], z: z1 };
+  function buildSolids(comp) {
+    const byFil = { 1: [], 2: [], 3: [], 4: [] };
+    for (const p of comp.pieces) for (const g of solidsOf(p)) if (g) byFil[p.filament].push(g);
+    return byFil;
   }
 
-  // ---------- Scène ----------
-  const canvas = document.getElementById("stage");
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
-  renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(35, 1, 1, 5000);
-  const controls = new THREE.OrbitControls(camera, canvas);
-  controls.enableDamping = true;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x554455, 0.75));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.75);
-  sun.position.set(-80, 140, 200);
-  scene.add(sun);
-  const grid = new THREE.GridHelper(260, 26, 0x2d6670, 0x1a2a34);
-  grid.rotation.x = Math.PI / 2;
-  grid.position.z = -0.05;
-  scene.add(grid);
-  const group = new THREE.Group();
-  scene.add(group);
-  const matSocle = new THREE.MeshStandardMaterial({ color: state.c_socle, roughness: 0.6, metalness: 0 });
-  const matTexte = new THREE.MeshStandardMaterial({ color: state.c_texte, roughness: 0.5, metalness: 0 });
-
-  function resize() {
-    const w = canvas.clientWidth, h = canvas.clientHeight;
-    if (!w || !h) return;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+  // ---------- Historique ----------
+  const undoStack = [], redoStack = [];
+  let lastSnap = null, commitTimer = 0;
+  const snap = () => JSON.stringify(project);
+  function commit(immediate) {
+    clearTimeout(commitTimer);
+    const run = () => {
+      const s = snap();
+      if (s === lastSnap) return;
+      if (lastSnap !== null) { undoStack.push(lastSnap); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; }
+      lastSnap = s;
+      try { localStorage.setItem(STORE_KEY, s); } catch (e) { /* ignoré */ }
+      refreshHistoryButtons();
+    };
+    if (immediate) run(); else commitTimer = setTimeout(run, 450);
   }
-  new ResizeObserver(resize).observe(canvas);
-
-  let current = null, lastW = 0, lastH = 0;
-  function frame(w, h, force, arriere) {
-    if (!force && Math.abs(w - lastW) < lastW * 0.25 && Math.abs(h - lastH) < lastH * 0.25) return;
-    lastW = w; lastH = h;
-    // Recul pour faire tenir largeur et hauteur dans le champ, avec 35 % de marge
-    const fit = Math.max(h, w / Math.max(camera.aspect, 0.3), 30) * 1.35;
-    const d = fit / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-    camera.position.set(0, -d * 0.34, (arriere ? -1 : 1) * d * 0.94);
-    controls.target.set(0, 0, 0);
-    controls.update();
+  function restore(s) {
+    project = JSON.parse(s);
+    if (selected && !project.elements.some(e => e.id === selected)) selected = null;
+    lastSnap = s;
+    try { localStorage.setItem(STORE_KEY, s); } catch (e) { /* ignoré */ }
+    renderAll();
+    refreshHistoryButtons();
   }
-  document.getElementById("btn-reset").addEventListener("click", () => frame(lastW, lastH, true));
-  document.getElementById("btn-back").addEventListener("click", () => frame(lastW, lastH, true, true));
+  function undo() { commit(true); if (!undoStack.length) return; redoStack.push(lastSnap); restore(undoStack.pop()); }
+  function redo() { if (!redoStack.length) return; undoStack.push(lastSnap); restore(redoStack.pop()); }
+  function refreshHistoryButtons() {
+    document.getElementById("btn-undo").disabled = !undoStack.length && snap() === lastSnap;
+    document.getElementById("btn-redo").disabled = !redoStack.length;
+  }
 
+  // ---------- Plan de travail 2D ----------
+  const plan = document.getElementById("plan");
+  const ctx = plan.getContext("2d");
+  const view = { scale: 3, cx: 0, cy: 0 }; // px par mm, centre du plan en mm
+  let comp = null;
+  const toScreen = (x, y) => [plan.clientWidth / 2 + (x - view.cx) * view.scale, plan.clientHeight / 2 - (y - view.cy) * view.scale];
+  const toWorld = (sx, sy) => [(sx - plan.clientWidth / 2) / view.scale + view.cx, -(sy - plan.clientHeight / 2) / view.scale + view.cy];
+  function pathOf(paths) {
+    const p = new Path2D();
+    for (const poly of paths) {
+      poly.forEach((q, i) => { const [x, y] = toScreen(q.X / S, q.Y / S); if (i) p.lineTo(x, y); else p.moveTo(x, y); });
+      p.closePath();
+    }
+    return p;
+  }
+  function resizeCanvas(cv) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    return dpr;
+  }
+  function selBox(e) {
+    const local = localShape(e);
+    const b = bounds(local);
+    if (!b) return null;
+    const pad = 1.5 * S;
+    const corners = [[b.x0 - pad, b.y0 - pad], [b.x1 + pad, b.y0 - pad], [b.x1 + pad, b.y1 + pad], [b.x0 - pad, b.y1 + pad]];
+    const a = e.rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const w = corners.map(([x, y]) => [(x * c - y * s) / S + e.x, (x * s + y * c) / S + e.y]);
+    const top = [(0 * c - (b.y1 + pad + 6 * S / view.scale * 3) * s) / S + e.x, (0 * s + (b.y1 + pad + 6 * S / view.scale * 3) * c) / S + e.y];
+    return { corners: w, rotHandle: top, scaleHandle: w[1], topMid: [((0) * c - (b.y1 + pad) * s) / S + e.x, ((0) * s + (b.y1 + pad) * c) / S + e.y] };
+  }
+  function drawPlan() {
+    const dpr = resizeCanvas(plan);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = plan.clientWidth, H = plan.clientHeight;
+    ctx.clearRect(0, 0, W, H);
+    // Grille 10 mm et plateau
+    const step = view.scale * 10 < 14 ? 50 : 10;
+    const [wx0, wy1] = toWorld(0, 0), [wx1, wy0] = toWorld(W, H);
+    ctx.lineWidth = 1;
+    for (let x = Math.floor(wx0 / step) * step; x <= wx1; x += step) {
+      const [sx] = toScreen(x, 0);
+      ctx.strokeStyle = x === 0 ? "#2d6670" : (x % 50 === 0 ? "#1d313c" : "#141f28");
+      ctx.beginPath(); ctx.moveTo(Math.round(sx) + .5, 0); ctx.lineTo(Math.round(sx) + .5, H); ctx.stroke();
+    }
+    for (let y = Math.floor(wy0 / step) * step; y <= wy1; y += step) {
+      const [, sy] = toScreen(0, y);
+      ctx.strokeStyle = y === 0 ? "#2d6670" : (y % 50 === 0 ? "#1d313c" : "#141f28");
+      ctx.beginPath(); ctx.moveTo(0, Math.round(sy) + .5); ctx.lineTo(W, Math.round(sy) + .5); ctx.stroke();
+    }
+    const [px0, py0] = toScreen(-PLATE / 2, PLATE / 2);
+    ctx.strokeStyle = "#3fcfe055"; ctx.setLineDash([6, 4]);
+    ctx.strokeRect(px0, py0, PLATE * view.scale, PLATE * view.scale);
+    ctx.setLineDash([]);
+    if (!comp) return;
+    // Pièces, de la plus basse à la plus haute
+    const fil = project.filaments;
+    const sorted = comp.pieces.slice().sort((a, b) => a.z1 - b.z1);
+    for (const p of sorted) {
+      const path = pathOf(p.paths);
+      ctx.fillStyle = fil[p.filament - 1];
+      ctx.fill(path, "nonzero");
+      ctx.strokeStyle = "#00000066"; ctx.lineWidth = 1; ctx.stroke(path);
+      if (p.caisson) { ctx.strokeStyle = "#0008"; ctx.setLineDash([3, 3]); ctx.stroke(pathOf(offset(p.paths, -p.caisson.paroi))); ctx.setLineDash([]); }
+    }
+    // Sélection
+    const e = project.elements.find(x => x.id === selected);
+    if (e && e.visible !== false) {
+      const sb = selBox(e);
+      if (sb) {
+        const pts = sb.corners.map(([x, y]) => toScreen(x, y));
+        ctx.strokeStyle = "#3fcfe0"; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.stroke();
+        ctx.setLineDash([]);
+        const [tx, ty] = toScreen(...sb.topMid), [rx, ry] = toScreen(...sb.rotHandle);
+        ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(rx, ry); ctx.stroke();
+        ctx.fillStyle = "#0a0f14"; ctx.beginPath(); ctx.arc(rx, ry, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#3fcfe0"; ctx.beginPath(); ctx.arc(rx, ry, 3, 0, Math.PI * 2); ctx.fill();
+        const [sx, sy] = toScreen(...sb.scaleHandle);
+        ctx.fillStyle = "#3fcfe0"; ctx.fillRect(sx - 6, sy - 6, 12, 12);
+        ctx.fillStyle = "#0a0f14"; ctx.fillRect(sx - 3, sy - 3, 6, 6);
+      }
+    }
+    // Repère d'aimantation
+    if (drag && drag.snapX) { ctx.strokeStyle = "#ff6b7a"; const [sx] = toScreen(0, 0); ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke(); }
+    if (drag && drag.snapY) { ctx.strokeStyle = "#ff6b7a"; const [, sy] = toScreen(0, 0); ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke(); }
+  }
+  let planQueued = false;
+  function queuePlan() { if (planQueued) return; planQueued = true; requestAnimationFrame(() => { planQueued = false; drawPlan(); }); }
+  function fitView() {
+    if (!comp) return;
+    const b = bounds(comp.pieces.flatMap(p => p.paths));
+    if (!b) { view.cx = 0; view.cy = 0; view.scale = 3; queuePlan(); return; }
+    const W = plan.clientWidth || 600, H = plan.clientHeight || 400;
+    view.cx = (b.x0 + b.x1) / 2 / S; view.cy = (b.y0 + b.y1) / 2 / S;
+    view.scale = clamp(Math.min((W - 80) / (b.w / S + 20), (H - 140) / (b.h / S + 20)), 0.5, 40);
+    queuePlan();
+  }
+  // Tant que l'utilisateur n'a pas zoomé ou déplacé la vue, elle suit la taille de l'écran
+  let viewTouched = false;
+  new ResizeObserver(() => { if (!viewTouched) fitView(); else queuePlan(); resize3d(); }).observe(document.getElementById("stage"));
+
+  // Sélection et manipulation à la souris ou au doigt
+  let drag = null;
+  function hitElement(wx, wy) {
+    const [sx, sy] = toScreen(wx, wy);
+    const els = project.elements.filter(e => e.visible !== false);
+    const order = [...els.filter(e => e.type === "texte").reverse(), ...els.filter(e => e.type === "fond").reverse()];
+    for (const e of order) {
+      const path = pathOf(comp.shapes.get(e.id) || []);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (ctx.isPointInPath(path, sx, sy, "nonzero")) return e;
+    }
+    // Entre deux lettres : on accepte le cadre du texte
+    for (const e of order) {
+      if (e.type !== "texte") continue;
+      const sb = selBox(e);
+      if (!sb) continue;
+      const p = new Path2D(); sb.corners.map(([x, y]) => toScreen(x, y)).forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y))); p.closePath();
+      if (ctx.isPointInPath(p, sx, sy)) return e;
+    }
+    return null;
+  }
+  function hitHandle(sx, sy) {
+    const e = project.elements.find(x => x.id === selected);
+    if (!e || e.visible === false) return null;
+    const sb = selBox(e);
+    if (!sb) return null;
+    const [rx, ry] = toScreen(...sb.rotHandle), [qx, qy] = toScreen(...sb.scaleHandle);
+    if (Math.hypot(sx - rx, sy - ry) < 12) return { kind: "rot", e };
+    if (Math.abs(sx - qx) < 10 && Math.abs(sy - qy) < 10) return { kind: "scale", e };
+    // Clic dans le cadre de sélection : déplacement
+    const pts = sb.corners.map(([x, y]) => toScreen(x, y));
+    const p = new Path2D(); pts.forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y))); p.closePath();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (ctx.isPointInPath(p, sx, sy)) return { kind: "move", e };
+    return null;
+  }
+  const pointers = new Map();
+  plan.addEventListener("pointerdown", ev => {
+    plan.setPointerCapture(ev.pointerId);
+    pointers.set(ev.pointerId, [ev.offsetX, ev.offsetY]);
+    if (pointers.size === 2) { // pincement : zoom
+      const [a, b] = [...pointers.values()];
+      drag = { kind: "pinch", d0: Math.hypot(a[0] - b[0], a[1] - b[1]), s0: view.scale };
+      return;
+    }
+    const sx = ev.offsetX, sy = ev.offsetY;
+    const [wx, wy] = toWorld(sx, sy);
+    let h = hitHandle(sx, sy);
+    if (!h) {
+      const e = hitElement(wx, wy);
+      if (e) { select(e.id); h = { kind: "move", e }; }
+    }
+    if (h) {
+      const e = h.e;
+      drag = { kind: h.kind, id: e.id, wx, wy, x0: e.x, y0: e.y, rot0: e.rot, taille0: e.taille,
+        a0: Math.atan2(wy - e.y, wx - e.x), d0: Math.max(1, Math.hypot(wx - e.x, wy - e.y)) };
+      plan.className = "move";
+    } else {
+      if (selected) select(null);
+      drag = { kind: "pan", sx, sy, cx: view.cx, cy: view.cy };
+      plan.className = "grab";
+    }
+  });
+  plan.addEventListener("pointermove", ev => {
+    if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, [ev.offsetX, ev.offsetY]);
+    if (!drag) {
+      const h = hitHandle(ev.offsetX, ev.offsetY);
+      plan.style.cursor = h ? (h.kind === "rot" ? "alias" : h.kind === "scale" ? "nwse-resize" : "move") : "";
+      return;
+    }
+    if (drag.kind === "pinch") {
+      if (pointers.size < 2) return;
+      const [a, b] = [...pointers.values()];
+      viewTouched = true;
+      view.scale = clamp(drag.s0 * Math.hypot(a[0] - b[0], a[1] - b[1]) / drag.d0, 0.3, 60);
+      queuePlan();
+      return;
+    }
+    if (drag.kind === "pan") {
+      viewTouched = true;
+      view.cx = drag.cx - (ev.offsetX - drag.sx) / view.scale;
+      view.cy = drag.cy + (ev.offsetY - drag.sy) / view.scale;
+      queuePlan();
+      return;
+    }
+    const e = project.elements.find(x => x.id === drag.id);
+    if (!e) return;
+    const [wx, wy] = toWorld(ev.offsetX, ev.offsetY);
+    if (drag.kind === "move") {
+      let nx = drag.x0 + wx - drag.wx, ny = drag.y0 + wy - drag.wy;
+      const tol = 6 / view.scale;
+      drag.snapX = Math.abs(nx) < tol; drag.snapY = Math.abs(ny) < tol;
+      if (drag.snapX) nx = 0; if (drag.snapY) ny = 0;
+      e.x = Math.round(nx * 10) / 10; e.y = Math.round(ny * 10) / 10;
+    } else if (drag.kind === "rot") {
+      let r = drag.rot0 + (Math.atan2(wy - e.y, wx - e.x) - drag.a0) * 180 / Math.PI;
+      r = ((r + 540) % 360) - 180;
+      e.rot = ev.shiftKey ? Math.round(r / 15) * 15 : Math.round(r);
+    } else if (drag.kind === "scale") {
+      const k = Math.hypot(wx - e.x, wy - e.y) / drag.d0;
+      e.taille = clamp(Math.round(drag.taille0 * k * 2) / 2, 2, 250);
+    }
+    liveUpdate();
+  });
+  function endDrag(ev) {
+    pointers.delete(ev.pointerId);
+    if (!drag) return;
+    const wasEdit = drag.kind === "move" || drag.kind === "rot" || drag.kind === "scale";
+    drag = pointers.size ? null : null;
+    plan.className = "";
+    if (wasEdit) { rebuild(); commit(true); renderProps(); }
+    queuePlan();
+  }
+  plan.addEventListener("pointerup", endDrag);
+  plan.addEventListener("pointercancel", endDrag);
+  plan.addEventListener("wheel", ev => {
+    ev.preventDefault();
+    const [wx, wy] = toWorld(ev.offsetX, ev.offsetY);
+    viewTouched = true;
+    view.scale = clamp(view.scale * Math.exp(-ev.deltaY * 0.0015), 0.3, 60);
+    const [nx, ny] = toWorld(ev.offsetX, ev.offsetY);
+    view.cx += wx - nx; view.cy += wy - ny;
+    queuePlan();
+  }, { passive: false });
+  document.getElementById("z-in").addEventListener("click", () => { viewTouched = true; view.scale = clamp(view.scale * 1.25, 0.3, 60); queuePlan(); });
+  document.getElementById("z-out").addEventListener("click", () => { viewTouched = true; view.scale = clamp(view.scale / 1.25, 0.3, 60); queuePlan(); });
+  document.getElementById("z-fit").addEventListener("click", () => { viewTouched = false; fitView(); });
+
+  // Pendant un glissement : recalcul rapide limité à une image sur deux environ
+  let liveTimer = 0;
+  function liveUpdate() {
+    if (!liveTimer) liveTimer = setTimeout(() => { liveTimer = 0; rebuild(true); }, 60);
+    updatePropsLive();
+  }
+
+  // ---------- Recalcul ----------
   const statusEl = document.getElementById("status");
   const dimsEl = document.getElementById("dims");
-  function regenerate() {
+  let solids3dDirty = true;
+  function rebuild(light) {
     try {
-      const geo = build(state);
-      const parts = solids(geo, state);
-      while (group.children.length) {
-        const m = group.children.pop();
-        m.geometry.dispose();
-      }
-      parts.socle.forEach(g => group.add(new THREE.Mesh(g, matSocle)));
-      parts.texte.forEach(g => group.add(new THREE.Mesh(g, matTexte)));
-      matSocle.color.set(state.c_socle);
-      matTexte.color.set(state.c_texte);
-      current = parts;
-      const b = bounds(geo.contour.concat(geo.chiffre, geo.texte));
+      comp = compose(project);
+      statusEl.textContent = ""; statusEl.classList.remove("err");
+      const b = bounds(comp.pieces.flatMap(p => p.paths));
       if (b) {
-        const w = b.w / S, h = b.h / S;
-        const z = Math.max(parts.z, geo.contour.length ? state.ep_contour : 0, geo.chiffre.length ? state.ep_fond : 0);
+        const w = b.w / S, h = b.h / S, z = Math.max(0, ...comp.pieces.map(p => p.z1));
         const m = (k, v) => `<span class="m"><i>${k}</i><b>${v.toFixed(1)}<small>mm</small></b></span>`;
         dimsEl.innerHTML = m("Largeur", w) + m("Hauteur", h) + m("Épaisseur", z);
-        frame(w, h, !lastW);
-        statusEl.textContent = w > 256 || h > 256 ? "Attention : plus grand qu'un plateau de 256 mm." : "";
-        statusEl.classList.toggle("err", w > 256 || h > 256);
-      } else {
-        dimsEl.textContent = "Ajoute du texte pour voir le modèle.";
-        statusEl.textContent = "";
-      }
+        if (w > PLATE || h > PLATE) { statusEl.textContent = `Attention : plus grand qu'un plateau de ${PLATE} mm.`; statusEl.classList.add("err"); }
+      } else dimsEl.innerHTML = "";
       document.getElementById("btn-export").disabled = !b;
-    } catch (e) {
-      statusEl.textContent = "Génération impossible avec ces réglages : " + e.message;
+    } catch (err) {
+      statusEl.textContent = "Calcul impossible avec ces réglages : " + err.message;
       statusEl.classList.add("err");
     }
-    try { localStorage.setItem("lettrage-vie", JSON.stringify(state)); } catch (e) { /* ignoré */ }
+    solids3dDirty = true;
+    if (!light && mode3d) render3dModel();
+    queuePlan();
   }
-  let timer = 0;
-  function schedule() { clearTimeout(timer); timer = setTimeout(regenerate, 120); }
+  let rebuildTimer = 0;
+  function scheduleRebuild() { clearTimeout(rebuildTimer); rebuildTimer = setTimeout(() => rebuild(), 90); }
 
-  (function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
-  resize();
-  regenerate();
+  // ---------- Calques ----------
+  const layerList = document.getElementById("layer-list");
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function renderLayers() {
+    const els = project.elements;
+    document.getElementById("layer-count").textContent = `${els.length} élément${els.length > 1 ? "s" : ""}`;
+    // Du plus haut (affiché en premier) au plus bas
+    const rows = els.map((e, i) => ({ e, i })).reverse();
+    layerList.innerHTML = rows.map(({ e, i }) => `
+      <li class="layer${e.visible === false ? " off" : ""}" role="option" aria-selected="${e.id === selected}" data-id="${e.id}" tabindex="0">
+        <span class="sw" style="background:${project.filaments[e.filament - 1]}"></span>
+        <span class="nm">${esc(e.texte || "(vide)")}<small>${TYPES[e.type].nom} · F${e.filament}</small></span>
+        <span class="acts">
+          <button type="button" class="ico" data-act="vis" title="${e.visible === false ? "Afficher" : "Masquer"}" aria-label="${e.visible === false ? "Afficher" : "Masquer"}">${e.visible === false ? "○" : "●"}</button>
+          <button type="button" class="ico" data-act="up" title="Monter" aria-label="Monter" ${i === els.length - 1 ? "disabled" : ""}>↑</button>
+          <button type="button" class="ico" data-act="down" title="Descendre" aria-label="Descendre" ${i === 0 ? "disabled" : ""}>↓</button>
+          <button type="button" class="ico danger" data-act="del" title="Supprimer" aria-label="Supprimer">✕</button>
+        </span>
+      </li>`).join("") || `<li class="hint">Aucun élément. Ajoute un texte ou une lettre de fond.</li>`;
+  }
+  layerList.addEventListener("click", ev => {
+    const li = ev.target.closest(".layer");
+    if (!li) return;
+    const id = li.dataset.id;
+    const i = project.elements.findIndex(e => e.id === id);
+    const btn = ev.target.closest("button[data-act]");
+    if (!btn) { select(id); return; }
+    const e = project.elements[i];
+    const act = btn.dataset.act;
+    if (act === "vis") e.visible = e.visible === false;
+    else if (act === "up" && i < project.elements.length - 1) project.elements.splice(i + 1, 0, project.elements.splice(i, 1)[0]);
+    else if (act === "down" && i > 0) project.elements.splice(i - 1, 0, project.elements.splice(i, 1)[0]);
+    else if (act === "del") { removeElement(id); return; }
+    changed(true);
+  });
+  layerList.addEventListener("keydown", ev => {
+    const li = ev.target.closest(".layer");
+    if (li && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); select(li.dataset.id); }
+  });
+  function addElement(e) {
+    project.elements.push(e);
+    selected = e.id;
+    changed(true);
+  }
+  function removeElement(id) {
+    project.elements = project.elements.filter(e => e.id !== id);
+    if (selected === id) selected = null;
+    changed(true);
+  }
+  function duplicate(id) {
+    const e = project.elements.find(x => x.id === id);
+    if (!e) return;
+    const c = { ...e, id: uid(), x: e.x + 5, y: e.y - 5 };
+    project.elements.splice(project.elements.indexOf(e) + 1, 0, c);
+    selected = c.id;
+    changed(true);
+  }
+  document.getElementById("add-texte").addEventListener("click", () => {
+    const last = [...project.elements].reverse().find(e => e.type === "texte");
+    // Sous l'ensemble existant, pour ne pas recouvrir les autres textes
+    const b = comp && bounds(comp.pieces.flatMap(p => p.paths));
+    const taille = last ? last.taille : 14;
+    addElement(newTexte({ police: last ? last.police : "Pacifico|400", taille, filament: last ? last.filament : 2,
+      x: b ? Math.round((b.x0 + b.x1) / 2 / S) : 0, y: b ? Math.round(b.y0 / S - taille * 0.9) : 0 }));
+    fitView();
+    const inp = document.getElementById("p-texte");
+    if (inp) { inp.focus(); inp.select(); }
+  });
+  document.getElementById("add-fond").addEventListener("click", () => {
+    project.elements.unshift(newFond({ x: view.cx, y: view.cy }));
+    selected = project.elements[0].id;
+    changed(true);
+  });
+  function select(id) {
+    selected = id;
+    renderLayers(); renderProps(); queuePlan();
+  }
+  function changed(structural) {
+    if (structural) renderLayers();
+    renderProps();
+    rebuild();
+    commit(true);
+  }
+
+  // ---------- Propriétés ----------
+  const propsBody = document.getElementById("props-body");
+  const propsTitle = document.getElementById("props-title");
+  const numCtl = (id, label, v, min, max, step, unit) => `
+    <label class="field"><span>${label}</span>
+      <span class="num"><input type="range" id="r-${id}" data-k="${id}" min="${min}" max="${max}" step="${step}" value="${v}">
+        <span class="u" data-u="${unit}"><input type="number" id="n-${id}" data-k="${id}" min="${min}" max="${max}" step="${step}" value="${v}"></span></span></label>`;
+  const filCtl = cur => `<div class="field"><span>Filament AMS</span><div class="fil" role="group" aria-label="Filament">${project.filaments.map((c, i) =>
+    `<button type="button" data-fil="${i + 1}" aria-pressed="${cur === i + 1}" style="background:${c}" aria-label="Filament ${i + 1}">${i + 1}</button>`).join("")}</div></div>`;
+  const segCtl = (k, label, v, opts) => `<div class="field"><span>${label}</span><div class="seg" role="group">${opts.map(([val, txt]) =>
+    `<button type="button" data-seg="${k}" data-v="${val}" aria-pressed="${v === val}">${txt}</button>`).join("")}</div></div>`;
+  const fontCtl = cur => {
+    const f = fontInfo(cur);
+    return `<div class="field"><span>Police</span><div class="fontpick"><button type="button" id="fp-btn" aria-haspopup="listbox" aria-expanded="false" style="font-family:'${f.css}', var(--font-body)">${esc(f.nom)}</button></div></div>`;
+  };
+  function caissonCtl(o) {
+    return `${segCtl("arriere", "Arrière", o.arriere, [["plein", "Plein"], ["creux", "Creux"]])}
+      <div class="row" ${o.arriere === "creux" ? "" : "hidden"}>${numCtl("paroi", "Parois", o.paroi, 0.4, 6, 0.1, "mm")}${numCtl("capot", "Face avant", o.capot, 0.4, 6, 0.2, "mm")}</div>
+      <div ${o.arriere === "creux" ? "" : "hidden"}>${numCtl("fond", "Fond arrière (0 = ouvert)", o.fond, 0, 6, 0.2, "mm")}</div>`;
+  }
+  function renderProps() {
+    const e = project.elements.find(x => x.id === selected);
+    if (!e) {
+      const c = project.contour;
+      propsTitle.innerHTML = `Projet <small>aucun élément sélectionné</small>`;
+      propsBody.innerHTML = `
+        <div class="group"><h3>Filaments AMS</h3>
+          <div class="colors">${project.filaments.map((col, i) => `<label>F${i + 1}<input type="color" data-color="${i}" value="${col}"></label>`).join("")}</div>
+          <p class="hint">Les couleurs servent à l'aperçu et nomment les pièces du 3MF.</p></div>
+        <div class="group" data-scope="contour"><h3>Contour sous les textes</h3>
+          <label class="switch"><input type="checkbox" data-k="actif" ${c.actif ? "checked" : ""}><span>Ajouter un contour</span></label>
+          <div ${c.actif ? "" : "hidden"} style="display:flex;flex-direction:column;gap:10px">
+            ${numCtl("epaisseur", "Épaisseur", c.epaisseur, 0.6, 30, 0.2, "mm")}
+            ${numCtl("largeur", "Largeur autour des lettres", c.largeur, 0.4, 10, 0.1, "mm")}
+            ${numCtl("lissage", "Comblement entre lettres", c.lissage, 0, 10, 0.5, "mm")}
+            ${caissonCtl(c)}
+            ${filCtl(c.filament)}
+            <p class="hint">Chaque texte peut être exclu du contour dans ses propriétés.</p>
+          </div></div>`;
+      return;
+    }
+    propsTitle.innerHTML = `${TYPES[e.type].nom} <small>F${e.filament}</small>`;
+    const common = `
+      <div class="group"><h3>Position</h3>
+        <div class="row">${numCtl("x", "X", e.x, -150, 150, 0.5, "mm")}${numCtl("y", "Y", e.y, -150, 150, 0.5, "mm")}</div>
+        ${numCtl("rot", "Rotation", e.rot, -180, 180, 1, "°")}
+        <div class="row"><button type="button" class="btn sm" data-do="center">Centrer</button><button type="button" class="btn sm" data-do="dup">Dupliquer</button></div>
+      </div>`;
+    if (e.type === "texte") {
+      propsBody.innerHTML = `
+        <div class="group"><h3>Texte</h3>
+          <label class="field"><span>Texte</span><input type="text" class="big" id="p-texte" data-k="texte" value="${esc(e.texte)}" maxlength="80"></label>
+          ${fontCtl(e.police)}
+          ${numCtl("taille", "Hauteur des majuscules", e.taille, 2, 200, 0.5, "mm")}
+          ${numCtl("espacement", "Espacement des lettres", e.espacement, -0.1, 0.3, 0.005, "em")}
+        </div>
+        <div class="group"><h3>Arc</h3>
+          ${numCtl("rayon", "Rayon (0 = droit)", e.rayon, 0, 600, 5, "mm")}
+          ${segCtl("sens", "Sens", e.sens, [["haut", "Vers le haut"], ["bas", "Vers le bas"]])}
+        </div>
+        <div class="group"><h3>Relief</h3>
+          ${numCtl("relief", "Hauteur au-dessus du support", e.relief, 0.2, 60, 0.2, "mm")}
+          <label class="switch"><input type="checkbox" data-k="contour" ${e.contour ? "checked" : ""}><span>Inclus dans le contour</span></label>
+          ${filCtl(e.filament)}
+        </div>
+        ${common}`;
+    } else {
+      propsBody.innerHTML = `
+        <div class="group"><h3>Forme</h3>
+          <label class="field"><span>Lettre, chiffre ou mot</span><input type="text" class="big" id="p-texte" data-k="texte" value="${esc(e.texte)}" maxlength="12"></label>
+          ${fontCtl(e.police)}
+          ${numCtl("taille", "Hauteur", e.taille, 10, 250, 1, "mm")}
+        </div>
+        <div class="group"><h3>Volume</h3>
+          ${numCtl("epaisseur", "Épaisseur", e.epaisseur, 0.6, 60, 0.2, "mm")}
+          ${caissonCtl(e)}
+          ${filCtl(e.filament)}
+        </div>
+        ${common}`;
+    }
+  }
+  function updatePropsLive() {
+    const e = project.elements.find(x => x.id === selected);
+    if (!e) return;
+    for (const k of ["x", "y", "rot", "taille"]) {
+      const r = document.getElementById("r-" + k), n = document.getElementById("n-" + k);
+      if (r) r.value = e[k]; if (n) n.value = e[k];
+    }
+  }
+  function targetObj(el) {
+    if (el.closest('[data-scope="contour"]')) return project.contour;
+    return project.elements.find(x => x.id === selected) || null;
+  }
+  propsBody.addEventListener("input", ev => {
+    const el = ev.target;
+    if (el.dataset.color != null) { project.filaments[+el.dataset.color] = el.value; renderLayers(); queuePlan(); solids3dDirty = true; if (mode3d) render3dModel(); commit(); return; }
+    const k = el.dataset.k;
+    const o = targetObj(el);
+    if (!k || !o) return;
+    if (el.type === "checkbox") { o[k] = el.checked; changed(false); renderProps(); return; }
+    if (el.type === "range" || el.type === "number") {
+      const v = parseFloat(el.value);
+      if (!isFinite(v)) return;
+      o[k] = v;
+      const twin = document.getElementById((el.type === "range" ? "n-" : "r-") + k);
+      if (twin) twin.value = v;
+    } else o[k] = el.value;
+    if (k === "texte") renderLayers();
+    scheduleRebuild();
+    commit();
+  });
+  propsBody.addEventListener("click", ev => {
+    const o = targetObj(ev.target);
+    const fil = ev.target.closest("[data-fil]");
+    if (fil && o) { o.filament = +fil.dataset.fil; changed(true); return; }
+    const seg = ev.target.closest("[data-seg]");
+    if (seg && o) { o[seg.dataset.seg] = seg.dataset.v; changed(false); return; }
+    const d = ev.target.closest("[data-do]");
+    if (d && o) {
+      if (d.dataset.do === "center") { o.x = 0; o.y = 0; changed(false); }
+      if (d.dataset.do === "dup") duplicate(o.id);
+      return;
+    }
+    if (ev.target.closest("#fp-btn")) openFontList(ev.target.closest("#fp-btn"));
+  });
+  // Sélecteur de police avec aperçu
+  function openFontList(btn) {
+    const wrap = btn.parentElement;
+    let list = wrap.querySelector(".fontlist");
+    if (list) { list.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+    const e = project.elements.find(x => x.id === selected);
+    if (!e) return;
+    const sample = (e.texte || "Abc").slice(0, 14);
+    const grp = (title, arr) => `<h4>${title}</h4>` + arr.map(f => `<button type="button" role="option" data-font="${f.cle}" aria-selected="${f.cle === e.police}" style="font-family:'${f.css}', var(--font-body)"><span>${esc(sample)}</span><small>${esc(f.nom)}</small></button>`).join("");
+    list = document.createElement("div");
+    list.className = "fontlist"; list.setAttribute("role", "listbox");
+    list.innerHTML = grp("Cursives", FONT_LIST.filter(f => f.cursive)) + grp("Classiques", FONT_LIST.filter(f => !f.cursive));
+    wrap.appendChild(list);
+    btn.setAttribute("aria-expanded", "true");
+    const cur = list.querySelector('[aria-selected="true"]');
+    if (cur) cur.scrollIntoView({ block: "nearest" });
+    list.addEventListener("click", ev2 => {
+      const b = ev2.target.closest("[data-font]");
+      if (!b) return;
+      e.police = b.dataset.font;
+      list.remove();
+      changed(true);
+    });
+  }
+  document.addEventListener("pointerdown", ev => {
+    const open = document.querySelector(".fontlist");
+    if (open && !ev.target.closest(".fontpick")) open.remove();
+  });
+
+  // ---------- Clavier ----------
+  document.addEventListener("keydown", ev => {
+    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== "range" && document.activeElement.type !== "checkbox";
+    const mod = ev.ctrlKey || ev.metaKey;
+    if (mod && ev.key.toLowerCase() === "z" && !typing) { ev.preventDefault(); ev.shiftKey ? redo() : undo(); return; }
+    if (mod && ev.key.toLowerCase() === "y" && !typing) { ev.preventDefault(); redo(); return; }
+    if (typing) return;
+    const e = project.elements.find(x => x.id === selected);
+    if (ev.key === "Escape") { const o = document.querySelector(".fontlist"); if (o) o.remove(); else select(null); return; }
+    if (!e) return;
+    if (ev.key === "Delete" || ev.key === "Backspace") { ev.preventDefault(); removeElement(e.id); return; }
+    if (mod && ev.key.toLowerCase() === "d") { ev.preventDefault(); duplicate(e.id); return; }
+    const step = ev.shiftKey ? 10 : 1;
+    const mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[ev.key];
+    if (mv) { ev.preventDefault(); e.x = Math.round((e.x + mv[0]) * 10) / 10; e.y = Math.round((e.y + mv[1]) * 10) / 10; updatePropsLive(); scheduleRebuild(); commit(); }
+  });
+
+  // ---------- Vue 3D ----------
+  const c3 = document.getElementById("view3d");
+  let renderer = null, scene, camera, controls, group, mode3d = false, lastFit = 0;
+  function init3d() {
+    renderer = new THREE.WebGLRenderer({ canvas: c3, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(35, 1, 1, 5000);
+    controls = new THREE.OrbitControls(camera, c3);
+    controls.enableDamping = true;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.75));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(-80, 140, 200); scene.add(sun);
+    const back = new THREE.DirectionalLight(0xffffff, 0.35); back.position.set(60, -100, -150); scene.add(back);
+    const grid = new THREE.GridHelper(260, 26, 0x2d6670, 0x1a2a34); grid.rotation.x = Math.PI / 2; grid.position.z = -0.05; scene.add(grid);
+    group = new THREE.Group(); scene.add(group);
+    (function loop() { if (mode3d) { controls.update(); renderer.render(scene, camera); } requestAnimationFrame(loop); })();
+  }
+  function resize3d() {
+    if (!renderer) return;
+    const w = c3.clientWidth, h = c3.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  function frame3d(back) {
+    const b = comp && bounds(comp.pieces.flatMap(p => p.paths));
+    const w = b ? b.w / S : 80, h = b ? b.h / S : 80;
+    const cx = b ? (b.x0 + b.x1) / 2 / S : 0, cy = b ? (b.y0 + b.y1) / 2 / S : 0;
+    const fit = Math.max(h, w / Math.max(camera.aspect, 0.3), 30) * 1.35;
+    const d = fit / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    camera.position.set(cx, cy - d * 0.34, (back ? -1 : 1) * d * 0.94);
+    controls.target.set(cx, cy, 0);
+    controls.update();
+  }
+  let currentSolids = null;
+  function render3dModel() {
+    if (!renderer || !comp) return;
+    if (solids3dDirty) {
+      while (group.children.length) { const m = group.children.pop(); m.geometry.dispose(); m.material.dispose(); }
+      currentSolids = buildSolids(comp);
+      for (const f of [1, 2, 3, 4]) {
+        const mat = new THREE.MeshStandardMaterial({ color: project.filaments[f - 1], roughness: 0.55, metalness: 0 });
+        for (const g of currentSolids[f]) group.add(new THREE.Mesh(g, mat));
+      }
+      solids3dDirty = false;
+    }
+  }
+  function setMode(is3d) {
+    mode3d = is3d;
+    document.getElementById("tab-plan").setAttribute("aria-pressed", String(!is3d));
+    document.getElementById("tab-3d").setAttribute("aria-pressed", String(is3d));
+    plan.hidden = is3d; c3.hidden = !is3d;
+    document.getElementById("zoom-plan").hidden = is3d; document.getElementById("zoom-3d").hidden = !is3d;
+    if (is3d) {
+      if (!renderer) init3d();
+      resize3d(); render3dModel();
+      if (!lastFit) { frame3d(false); lastFit = 1; }
+    } else queuePlan();
+  }
+  document.getElementById("tab-plan").addEventListener("click", () => setMode(false));
+  document.getElementById("tab-3d").addEventListener("click", () => setMode(true));
+  document.getElementById("v-face").addEventListener("click", () => frame3d(false));
+  document.getElementById("v-back").addEventListener("click", () => frame3d(true));
 
   // ---------- Export ----------
   function triangles(geoms) {
@@ -769,15 +1187,13 @@ const FONT_DATA = /*FONTS*/{};
     dv.setUint32(80, tris.length, true);
     let o = 84;
     for (const t of tris) {
-      const ux = t[3] - t[0], uy = t[4] - t[1], uz = t[5] - t[2];
-      const vx = t[6] - t[0], vy = t[7] - t[1], vz = t[8] - t[2];
-      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-      const l = Math.hypot(nx, ny, nz) || 1;
+      const ux = t[3] - t[0], uy = t[4] - t[1], uz = t[5] - t[2], vx = t[6] - t[0], vy = t[7] - t[1], vz = t[8] - t[2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, l = Math.hypot(nx, ny, nz) || 1;
       for (const n of [nx / l, ny / l, nz / l]) { dv.setFloat32(o, n, true); o += 4; }
       for (let k = 0; k < 9; k++) { dv.setFloat32(o, t[k], true); o += 4; }
       o += 2;
     }
-    return buf;
+    return new Uint8Array(buf);
   }
   function meshXml(geoms) {
     const idx = new Map(), verts = [], tris = [];
@@ -793,19 +1209,18 @@ const FONT_DATA = /*FONTS*/{};
     }
     return `<mesh><vertices>${verts.join("")}</vertices><triangles>${tris.join("")}</triangles></mesh>`;
   }
-  function threeMF(parts) {
+  function threeMF(solids) {
     const hex = c => c.replace("#", "").toUpperCase() + "FF";
     const objs = [];
-    parts.socle.forEach(g => objs.push({ id: objs.length + 2, name: "Socle", pindex: 0, g }));
-    parts.texte.forEach(g => objs.push({ id: objs.length + 2, name: "Texte", pindex: 1, g }));
+    for (const f of [1, 2, 3, 4]) solids[f].forEach(g => objs.push({ id: objs.length + 2, name: `Filament ${f}`, pindex: f - 1, g }));
     if (!objs.length) throw new Error("rien à exporter");
     const top = objs.length + 2;
     const model = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="fr-FR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
 <resources>
-<basematerials id="1"><base name="Socle" displaycolor="#${hex(state.c_socle)}"/><base name="Texte" displaycolor="#${hex(state.c_texte)}"/></basematerials>
+<basematerials id="1">${project.filaments.map((c, i) => `<base name="Filament ${i + 1}" displaycolor="#${hex(c)}"/>`).join("")}</basematerials>
 ${objs.map(o => `<object id="${o.id}" name="${o.name}" type="model" pid="1" pindex="${o.pindex}">${meshXml([o.g])}</object>`).join("\n")}
-<object id="${top}" name="Lettrage" type="model"><components>${objs.map(o => `<component objectid="${o.id}"/>`).join("")}</components></object>
+<object id="${top}" name="${esc(project.nom || "Lettrage")}" type="model"><components>${objs.map(o => `<component objectid="${o.id}"/>`).join("")}</components></object>
 </resources>
 <build><item objectid="${top}"/></build>
 </model>`;
@@ -818,52 +1233,82 @@ ${objs.map(o => `<object id="${o.id}" name="${o.name}" type="model" pid="1" pind
       "3D/3dmodel.model": enc(model),
     }, { level: 6 });
   }
-  function slug() {
-    const texts = state.lines.map(l => (l.texte || "").trim()).filter(Boolean);
-    // Le nom le plus court est en général le prénom
-    const base = texts.sort((x, y) => x.length - y.length)[0] || (state.chiffre_on && (state.chiffre || "").trim()) || "sans-titre";
-    return "lettrage-" + base.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
-  }
-  async function bundle() {
+  const slug = () => "lettrage-" + ((project.nom || "sans-titre").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "sans-titre");
+  function bundle() {
+    const solids = buildSolids(compose(project));
     const name = slug();
-    const files = { [`${name}.3mf`]: [threeMF(current), { level: 0 }] };
-    if (current.socle.length) files[`${name}-socle.stl`] = new Uint8Array(stl(current.socle));
-    if (current.texte.length) files[`${name}-texte.stl`] = new Uint8Array(stl(current.texte));
-    const zipped = fflate.zipSync(files, { level: 6 });
-    return { name, blob: new Blob([zipped], { type: "application/zip" }) };
+    const files = { [`${name}.3mf`]: [threeMF(solids), { level: 0 }] };
+    for (const f of [1, 2, 3, 4]) if (solids[f].length) files[`${name}-filament-${f}.stl`] = stl(solids[f]);
+    return { name, blob: new Blob([fflate.zipSync(files, { level: 6 })], { type: "application/zip" }) };
   }
-  window.__atelier = { build, solids, state, bundle, threeMF, stl, current: () => current, regenerate };
-
   let downloads = null;
-  if (window.claude && typeof window.claude.use === "function") {
-    window.claude.use("downloads").then(d => { downloads = d; }).catch(() => {});
+  if (window.claude && typeof window.claude.use === "function") window.claude.use("downloads").then(d => { downloads = d; }).catch(() => {});
+  async function saveFile(filename, data) {
+    if (downloads) { await downloads.save({ filename, data }); return "enregistré"; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data]));
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    return "téléchargé";
   }
-  const btn = document.getElementById("btn-export");
-  btn.addEventListener("click", async () => {
-    if (!current) return;
-    btn.disabled = true;
-    statusEl.classList.remove("err");
-    statusEl.textContent = "Préparation des fichiers…";
+  function flash(msg, err) { statusEl.textContent = msg; statusEl.classList.toggle("err", !!err); }
+  document.getElementById("btn-export").addEventListener("click", async ev => {
+    const btn = ev.currentTarget;
+    btn.disabled = true; flash("Préparation des fichiers…");
     try {
-      const { name, blob } = await bundle();
-      if (downloads) {
-        await downloads.save({ filename: `${name}.zip`, data: blob });
-        statusEl.textContent = `${name}.zip enregistré.`;
-      } else {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `${name}.zip`;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-        statusEl.textContent = `${name}.zip téléchargé.`;
-      }
+      const { name, blob } = bundle();
+      flash(`${name}.zip ${await saveFile(name + ".zip", blob)}.`);
     } catch (e) {
-      statusEl.classList.add("err");
-      statusEl.textContent = e && e.code === "declined" ? "Export annulé."
-        : "Export impossible ici. Ouvre la page dans claude.ai, ou enregistre-la et ouvre-la dans ton navigateur.";
-    } finally {
-      btn.disabled = false;
-    }
+      flash(e && e.code === "declined" ? "Export annulé." : "Export impossible ici. Ouvre la page dans claude.ai, ou génère-la avec build.py et ouvre-la dans ton navigateur.", !(e && e.code === "declined"));
+    } finally { btn.disabled = false; }
   });
+  document.getElementById("btn-save").addEventListener("click", async () => {
+    try {
+      const data = JSON.stringify({ ...project, app: "lettrage-vie" }, null, 1);
+      flash(`${slug()}.json ${await saveFile(slug() + ".json", new Blob([data], { type: "application/json" }))}.`);
+    } catch (e) { flash(e && e.code === "declined" ? "Enregistrement annulé." : "Enregistrement impossible ici.", !(e && e.code === "declined")); }
+  });
+  const fileInput = document.getElementById("file-open");
+  document.getElementById("btn-open").addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const p = JSON.parse(rd.result);
+        if (!p || !Array.isArray(p.elements)) throw new Error("format");
+        commit(true);
+        project = sanitize(p); selected = null;
+        renderAll(); fitView(); commit(true);
+        flash(`Projet « ${project.nom} » ouvert.`);
+      } catch (e) { flash("Ce fichier n'est pas un projet Lettrage Vié.", true); }
+      fileInput.value = "";
+    };
+    rd.readAsText(f);
+  });
+  document.getElementById("btn-new").addEventListener("click", () => {
+    commit(true);
+    project = { version: 2, nom: "Sans titre", filaments: project.filaments.slice(), contour: { ...defaultContour(), actif: false }, elements: [] };
+    selected = null;
+    renderAll(); fitView(); commit(true);
+    flash("Nouveau projet. Annuler le ramène si besoin.");
+  });
+  document.getElementById("btn-undo").addEventListener("click", undo);
+  document.getElementById("btn-redo").addEventListener("click", redo);
+  const nameInput = document.getElementById("proj-name");
+  nameInput.addEventListener("input", () => { project.nom = nameInput.value; commit(); });
+
+  // ---------- Démarrage ----------
+  function renderAll() {
+    nameInput.value = project.nom || "";
+    renderLayers(); renderProps(); rebuild();
+  }
+  project = loadInitial();
+  renderAll();
+  requestAnimationFrame(fitView);
+  commit(true);
+  window.__lettrage = { get project() { return project; }, set project(p) { project = sanitize(p); renderAll(); }, compose, buildSolids, bundle, threeMF, stl, select, rebuild, fitView, migrateV1, view, selBox, toScreen, get selected() { return selected; } };
 })();
 </script>
