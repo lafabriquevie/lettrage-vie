@@ -19,7 +19,7 @@ Le script injecte les polices de `fonts/` en base64 dans le source et produit `l
 
 - Lignes en nombre libre (12 au maximum). Pour chaque ligne : texte, police, hauteur des majuscules, arc (rayon et sens), décalage X/Y, rotation.
 - Contour sous le texte, désactivable, avec un arrière plein ou creux (parois, face avant pleine, fond arrière ouvert ou fermé).
-- Chiffre ou texte de fond, désactivable.
+- Chiffre ou texte de fond, désactivable, avec lui aussi un arrière plein ou creux.
 - Le texte de face reste toujours plein.
 
 ## Polices
