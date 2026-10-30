@@ -1231,6 +1231,18 @@ ${objs.map(o => `<object id="${o.id}" name="${o.name}" type="model" pid="1" pind
       "_rels/.rels": enc(`<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`),
       "3D/3dmodel.model": enc(model),
+      // Bambu Studio ignore les couleurs 3MF : il lit le filament de chaque pièce ici
+      "Metadata/model_settings.config": enc(`<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <object id="${top}">
+    <metadata key="name" value="${esc(project.nom || "Lettrage")}"/>
+    <metadata key="extruder" value="${objs[0].pindex + 1}"/>
+${objs.map(o => `    <part id="${o.id}" subtype="normal_part">
+      <metadata key="name" value="${o.name}"/>
+      <metadata key="extruder" value="${o.pindex + 1}"/>
+    </part>`).join("\n")}
+  </object>
+</config>`),
     }, { level: 6 });
   }
   const slug = () => "lettrage-" + ((project.nom || "sans-titre").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "sans-titre");
