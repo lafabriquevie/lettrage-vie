@@ -121,6 +121,11 @@ button { font: inherit; color: inherit; }
 .picker .grid button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 8px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 3px; color: var(--fg); cursor: pointer; font: inherit; font-size: 11px; line-height: 1.2; text-align: center; }
 .picker .grid svg { width: 46px; height: 46px; fill: var(--fg); }
 .picker .grid button:hover, .picker .grid button:focus-visible, .picker .grid button[aria-selected="true"] { border-color: var(--accent); background: var(--accent-dim); }
+.picker .grid.models { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.picker .grid.models button { padding: 12px 10px; gap: 10px; }
+.picker .grid.models svg { width: 100%; height: 110px; color: var(--muted); }
+.picker .grid.models b { display: block; font-size: 13px; }
+.picker .grid.models small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
 .picker .grid .imp { justify-content: center; color: var(--accent); border-style: dashed; font-size: 12px; }
 .btn.sm { padding: 6px 9px; font-size: 10.5px; }
 /* Champs */
@@ -624,16 +629,16 @@ const FONT_DATA = /*FONTS*/[];
   let seq = 1;
   const uid = () => "e" + (seq++).toString(36) + Math.random().toString(36).slice(2, 6);
   function newTexte(d) {
-    return { id: uid(), type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
+    return { id: uid(), separe: false, type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
       relief: 1.2, contour: true, support: 0, sup_largeur: 0, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   function newFond(d) {
-    return { id: uid(), type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
+    return { id: uid(), separe: false, type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
       ...LISERE, filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   // Forme : support (posé sur le plateau, comme une lettre de fond) ou relief (posé dessus, comme un texte)
   function newForme(d) {
-    return { id: uid(), type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
+    return { id: uid(), separe: false, type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
       epaisseur: 3, relief: 1.2, contour: false, support: 0, sup_largeur: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
       filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
@@ -681,6 +686,7 @@ const FONT_DATA = /*FONTS*/[];
         n.texte = String(n.texte || "").slice(0, 80);
       }
       n.lis_filament = clamp(Math.round(+n.lis_filament) || 2, 1, 4);
+      n.separe = !!n.separe;
       n.filament = clamp(Math.round(+n.filament) || 1, 1, 4);
       out.elements.push(n);
     }
@@ -958,6 +964,10 @@ const FONT_DATA = /*FONTS*/[];
       ctx.strokeStyle = "#00000066"; ctx.lineWidth = 1; ctx.stroke(path);
       if (p.caisson) { ctx.strokeStyle = "#0008"; ctx.setLineDash([3, 3]); ctx.stroke(pathOf(offset(p.paths, -p.caisson.paroi))); ctx.setLineDash([]); }
     }
+    // Pièces imprimées à part : contour pointillé
+    ctx.strokeStyle = "#3fcfe0"; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    for (const x of project.elements) if (x.separe && x.visible !== false && comp.shapes.get(x.id)) ctx.stroke(pathOf(offset(offset(comp.shapes.get(x.id), 6), -3)));
+    ctx.setLineDash([]);
     // Sélection
     const e = project.elements.find(x => x.id === selected);
     if (e && e.visible !== false) {
@@ -1169,7 +1179,7 @@ const FONT_DATA = /*FONTS*/[];
     layerList.innerHTML = rows.map(({ e, i }) => `
       <li class="layer${e.visible === false ? " off" : ""}" role="option" aria-selected="${e.id === selected}" data-id="${e.id}" tabindex="0">
         <span class="sw" style="background:${project.filaments[e.filament - 1]}"></span>
-        <span class="nm">${esc(labelOf(e))}<small>${e.type === "forme" ? (e.pose === "relief" ? "Forme en relief" : "Support") : TYPES[e.type].nom} · F${e.filament}</small></span>
+        <span class="nm">${esc(labelOf(e))}<small>${e.type === "forme" ? (e.pose === "relief" ? "Forme en relief" : "Support") : TYPES[e.type].nom} · F${e.filament}${e.separe ? " · à part" : ""}</small></span>
         <span class="acts">
           <button type="button" class="ico" data-act="vis" title="${e.visible === false ? "Afficher" : "Masquer"}" aria-label="${e.visible === false ? "Afficher" : "Masquer"}">${e.visible === false ? "○" : "●"}</button>
           <button type="button" class="ico" data-act="up" title="Monter" aria-label="Monter" ${i === els.length - 1 ? "disabled" : ""}>↑</button>
@@ -1365,6 +1375,8 @@ const FONT_DATA = /*FONTS*/[];
         <div class="row">${numCtl("x", "X", e.x, -150, 150, 0.5, "mm")}${numCtl("y", "Y", e.y, -150, 150, 0.5, "mm")}</div>
         ${numCtl("rot", "Rotation", e.rot, -180, 180, 1, "°")}
         <div class="row"><button type="button" class="btn sm" data-do="center">Centrer</button><button type="button" class="btn sm" data-do="dup">Dupliquer</button></div>
+        <label class="switch"><input type="checkbox" data-k="separe" ${e.separe ? "checked" : ""}><span>Pièce séparée (imprimée à part, à coller)</span></label>
+        <p class="hint">${e.separe ? "Exportée comme un objet à part, posée à plat à côté du reste ; sur le plan, elle reste à sa place de montage." : "Utile pour une pièce trop haute ou d'une autre matière, à coller après impression."}</p>
       </div>`;
     if (e.type === "forme") propsBody.innerHTML = formeProps(e, common);
     else if (e.type === "texte") {
@@ -1542,7 +1554,9 @@ const FONT_DATA = /*FONTS*/[];
     camera.aspect = w / h; camera.updateProjectionMatrix();
   }
   function frame3d(back) {
-    const b = comp && bounds(comp.pieces.flatMap(p => p.paths));
+    // Cadrage sur ce qui est affiché, pièces séparées comprises
+    const box = group && group.children.length ? new THREE.Box3().setFromObject(group) : null;
+    const b = box && !box.isEmpty() ? { w: (box.max.x - box.min.x) * S, h: (box.max.y - box.min.y) * S, x0: box.min.x * S, x1: box.max.x * S, y0: box.min.y * S, y1: box.max.y * S } : comp && bounds(comp.pieces.flatMap(p => p.paths));
     const w = b ? b.w / S : 80, h = b ? b.h / S : 80;
     const cx = b ? (b.x0 + b.x1) / 2 / S : 0, cy = b ? (b.y0 + b.y1) / 2 / S : 0;
     const fit = Math.max(h, w / Math.max(camera.aspect, 0.3), 30) * 1.35;
@@ -1556,7 +1570,10 @@ const FONT_DATA = /*FONTS*/[];
     if (!renderer || !comp) return;
     if (solids3dDirty) {
       while (group.children.length) { const m = group.children.pop(); m.geometry.dispose(); m.material.dispose(); }
-      currentSolids = buildSolids(comp);
+      // Aperçu tel qu'exporté : les pièces séparées posées à côté
+      const groups = exportGroups(project);
+      currentSolids = { 1: [], 2: [], 3: [], 4: [] };
+      for (const g of groups) for (const f of [1, 2, 3, 4]) currentSolids[f].push(...g.solids[f]);
       for (const f of [1, 2, 3, 4]) {
         const mat = new THREE.MeshStandardMaterial({ color: project.filaments[f - 1], roughness: 0.55, metalness: 0 });
         for (const g of currentSolids[f]) group.add(new THREE.Mesh(g, mat));
@@ -1619,22 +1636,46 @@ const FONT_DATA = /*FONTS*/[];
     }
     return `<mesh><vertices>${verts.join("")}</vertices><triangles>${tris.join("")}</triangles></mesh>`;
   }
-  function threeMF(solids) {
+  // Objets à exporter : l'ensemble monté, puis chaque pièce séparée, posée à plat à côté (10 mm d'écart)
+  function exportGroups(pr) {
+    const vis = pr.elements.filter(e => e.visible !== false);
+    const main = vis.filter(e => !e.separe), sep = vis.filter(e => e.separe);
+    const groups = [];
+    if (main.length) groups.push({ nom: pr.nom || "Lettrage", comp: compose({ ...pr, elements: main }) });
+    for (const e of sep) groups.push({ nom: labelOf(e), comp: compose({ ...pr, elements: [e] }) });
+    let cursor = null;
+    for (const g of groups) {
+      g.solids = buildSolids(g.comp);
+      const b = bounds(g.comp.pieces.flatMap(p => p.paths));
+      if (!b) continue;
+      if (cursor === null) { cursor = b.x1 / S + 10; continue; }
+      const dx = cursor - b.x0 / S, dy = -(b.y0 + b.y1) / 2 / S;
+      for (const f of [1, 2, 3, 4]) g.solids[f].forEach(geo => geo.translate(dx, dy, 0));
+      cursor += b.w / S + 10;
+    }
+    return groups.filter(g => [1, 2, 3, 4].some(f => g.solids[f].length));
+  }
+  function threeMF(groups) {
+    if (!Array.isArray(groups)) groups = [{ nom: project.nom, solids: groups }];
     const hex = c => c.replace("#", "").toUpperCase() + "FF";
-    const objs = [];
-    const used = [1, 2, 3, 4].filter(f => solids[f].length);
-    for (const f of used) solids[f].forEach(g => objs.push({ id: objs.length + 2, name: `Filament ${f}`, f, pindex: used.indexOf(f), g }));
-    if (!objs.length) throw new Error("rien à exporter");
-    const top = objs.length + 2;
+    const used = [1, 2, 3, 4].filter(f => groups.some(g => g.solids[f].length));
+    if (!used.length) throw new Error("rien à exporter");
+    let id = 2;
+    for (const g of groups) {
+      g.objs = [];
+      for (const f of used) g.solids[f].forEach(geo => g.objs.push({ id: id++, name: `Filament ${f}`, f, pindex: used.indexOf(f), g: geo }));
+      g.top = id++;
+    }
+    const live = groups.filter(g => g.objs.length);
     // Groupe de couleurs standard : Bambu Studio propose alors d'associer chaque couleur à un filament du projet
     const model = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="fr-FR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02">
 <resources>
 <m:colorgroup id="1">${used.map(f => `<m:color color="#${hex(project.filaments[f - 1])}"/>`).join("")}</m:colorgroup>
-${objs.map(o => `<object id="${o.id}" name="${o.name}" type="model" pid="1" pindex="${o.pindex}">${meshXml([o.g])}</object>`).join("\n")}
-<object id="${top}" name="${esc(project.nom || "Lettrage")}" type="model"><components>${objs.map(o => `<component objectid="${o.id}"/>`).join("")}</components></object>
+${live.map(g => g.objs.map(o => `<object id="${o.id}" name="${o.name}" type="model" pid="1" pindex="${o.pindex}">${meshXml([o.g])}</object>`).join("\n")
+  + `\n<object id="${g.top}" name="${esc(g.nom || "Lettrage")}" type="model"><components>${g.objs.map(o => `<component objectid="${o.id}"/>`).join("")}</components></object>`).join("\n")}
 </resources>
-<build><item objectid="${top}"/></build>
+<build>${live.map(g => `<item objectid="${g.top}"/>`).join("")}</build>
 </model>`;
     const enc = t => new TextEncoder().encode(t);
     return fflate.zipSync({
@@ -1646,23 +1687,23 @@ ${objs.map(o => `<object id="${o.id}" name="${o.name}" type="model" pid="1" pind
       // Bambu Studio ignore les couleurs 3MF : il lit le filament de chaque pièce ici
       "Metadata/model_settings.config": enc(`<?xml version="1.0" encoding="UTF-8"?>
 <config>
-  <object id="${top}">
-    <metadata key="name" value="${esc(project.nom || "Lettrage")}"/>
-    <metadata key="extruder" value="${objs[0].f}"/>
-${objs.map(o => `    <part id="${o.id}" subtype="normal_part">
+${live.map(g => `  <object id="${g.top}">
+    <metadata key="name" value="${esc(g.nom || "Lettrage")}"/>
+    <metadata key="extruder" value="${g.objs[0].f}"/>
+${g.objs.map(o => `    <part id="${o.id}" subtype="normal_part">
       <metadata key="name" value="${o.name}"/>
       <metadata key="extruder" value="${o.f}"/>
     </part>`).join("\n")}
-  </object>
+  </object>`).join("\n")}
 </config>`),
     }, { level: 6 });
   }
   const slug = () => "lettrage-" + ((project.nom || "sans-titre").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "sans-titre");
   function bundle() {
-    const solids = buildSolids(compose(project));
+    const groups = exportGroups(project);
     const name = slug();
-    const files = { [`${name}.3mf`]: [threeMF(solids), { level: 0 }] };
-    for (const f of [1, 2, 3, 4]) if (solids[f].length) files[`${name}-filament-${f}.stl`] = stl(solids[f]);
+    const files = { [`${name}.3mf`]: [threeMF(groups), { level: 0 }] };
+    for (const f of [1, 2, 3, 4]) { const all = groups.flatMap(g => g.solids[f]); if (all.length) files[`${name}-filament-${f}.stl`] = stl(all); }
     return { name, blob: new Blob([fflate.zipSync(files, { level: 6 })], { type: "application/zip" }) };
   }
   let downloads = null;
@@ -1712,13 +1753,76 @@ ${objs.map(o => `    <part id="${o.id}" subtype="normal_part">
     };
     rd.readAsText(f);
   });
-  document.getElementById("btn-new").addEventListener("click", () => {
-    commit(true);
-    project = { version: 2, nom: "Sans titre", filaments: project.filaments.slice(), contour: { ...defaultContour(), actif: false }, elements: [] };
-    selected = null;
-    renderAll(); fitView(); commit(true);
-    flash("Nouveau projet. Annuler le ramène si besoin.");
-  });
+  // ---------- Modèles de départ ----------
+  const MODELES = [
+    { nom: "Projet vide", desc: "Plan vierge", p: () => ({ nom: "Sans titre", filaments: project.filaments.slice(), contour: { actif: false }, elements: [] }) },
+    { nom: "Plaque de naissance", desc: "Nuage, liseré, prénom, date, heure, poids, taille", p: () => ({
+      nom: "Plaque de naissance", filaments: ["#a9cbe8", "#ffffff", "#f2c6a0", "#36507a"], contour: { actif: true, epaisseur: 3, largeur: 2, lissage: 1, filament: 2 },
+      elements: [
+        { type: "forme", forme: "nuage", taille: 120, pose: "socle", epaisseur: 3, filament: 1, lisere: true, lis_largeur: 3, lis_relief: 1.2, lis_filament: 2 },
+        { type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 20, y: 8, relief: 1.5, filament: 4, contour: true, support: 4.5, sup_largeur: 2 },
+        { type: "texte", texte: "12 mars 2026", police: "Nunito|700", taille: 6, y: -14, relief: 1, filament: 4, contour: false },
+        { type: "forme", forme: "horloge", taille: 9, x: -30, y: -28, pose: "relief", relief: 1, filament: 4 },
+        { type: "texte", texte: "14h32", police: "Nunito|700", taille: 4.5, x: -30, y: -38, relief: 1, filament: 4, contour: false },
+        { type: "forme", forme: "balance", taille: 9, x: 0, y: -28, pose: "relief", relief: 1, filament: 4 },
+        { type: "texte", texte: "3,2 kg", police: "Nunito|700", taille: 4.5, x: 0, y: -38, relief: 1, filament: 4, contour: false },
+        { type: "forme", forme: "regle", taille: 5, x: 30, y: -28, pose: "relief", relief: 1, filament: 4 },
+        { type: "texte", texte: "50 cm", police: "Nunito|700", taille: 4.5, x: 30, y: -38, relief: 1, filament: 4, contour: false },
+        { type: "forme", forme: "lune", taille: 16, x: -40, y: 24, rot: -20, pose: "relief", relief: 1.2, filament: 3 },
+        { type: "forme", forme: "etoile", taille: 8, x: 36, y: 28, pose: "relief", relief: 1.2, filament: 3 },
+        { type: "forme", forme: "pieds", taille: 12, x: 44, y: 10, rot: 15, pose: "relief", relief: 1, filament: 3 },
+      ] }) },
+    { nom: "Lettre + prénom", desc: "Grande initiale creuse avec liseré, prénom sur support", p: () => ({
+      nom: "Lettre prénom", filaments: ["#f4b6c8", "#ffffff", "#7d8fb3", "#e5c07b"], contour: { actif: true, epaisseur: 14, largeur: 2, lissage: 1, filament: 2 },
+      elements: [
+        { type: "fond", texte: "L", police: "Nunito|900", taille: 150, epaisseur: 12, arriere: "creux", paroi: 1.6, capot: 1.6, fond: 1.2, filament: 1, lisere: true, lis_largeur: 4, lis_relief: 2, lis_filament: 3 },
+        { type: "texte", texte: "Léonie", police: "Pacifico|400", taille: 24, relief: 2, filament: 2, rot: -8, y: -10, contour: true },
+      ] }) },
+    { nom: "Cake topper", desc: "Chiffre de fond, textes sur contour", p: () => ({ ...exampleProject(), nom: "Cake topper" }) },
+    { nom: "Enseigne", desc: "Texte sur contour épais à l'arrière creux", p: () => ({
+      nom: "Enseigne", filaments: ["#1d1d1f", "#f5f5f0", "#c8a24a", "#7d8fb3"], contour: { actif: true, epaisseur: 18, largeur: 5, lissage: 4, arriere: "creux", paroi: 1.6, capot: 1.6, fond: 1.2, filament: 1 },
+      elements: [
+        { type: "texte", texte: "Atelier", police: "Montserrat|900", taille: 45, relief: 2.5, filament: 2, contour: true, y: 12 },
+        { type: "texte", texte: "La Fabrique", police: "Pacifico|400", taille: 18, relief: 2.5, filament: 3, contour: true, y: -30 },
+      ] }) },
+  ];
+  function thumbProject(pr) {
+    const c = compose(pr), all = c.pieces.flatMap(q => q.paths), b = bounds(all);
+    if (!b) return `<svg viewBox="0 0 10 10" aria-hidden="true"></svg>`;
+    const pad = Math.max(b.w, b.h) * 0.05;
+    const d = paths => paths.map(q => "M" + q.map(v => `${v.X - b.x0 + pad | 0} ${b.y1 - v.Y + pad | 0}`).join("L") + "Z").join("");
+    return `<svg viewBox="0 0 ${b.w + 2 * pad | 0} ${b.h + 2 * pad | 0}" aria-hidden="true">${c.pieces.slice().sort((x, y) => x.z1 - y.z1).map(q =>
+      `<path d="${d(q.paths)}" fill="${pr.filaments[q.filament - 1]}"/>`).join("")}</svg>`;
+  }
+  // Aperçus calculés une fois, en tâche de fond peu après le démarrage
+  const thumbCache = {};
+  const modeleThumb = i => thumbCache[i] || (thumbCache[i] = thumbProject(sanitize(MODELES[i].p())));
+  setTimeout(() => { let i = 1; const next = () => { if (i < MODELES.length) { modeleThumb(i++); setTimeout(next, 50); } }; next(); }, 2500);
+  function openModeles() {
+    closePicker();
+    const back = document.createElement("div");
+    back.className = "picker-back";
+    back.innerHTML = `<div class="picker" role="dialog" aria-modal="true" aria-label="Nouveau projet">
+      <header><b>Nouveau projet</b><button type="button" class="btn sm" data-close>Fermer</button></header>
+      <p class="hint">Pars d'un modèle puis remplace les textes. Le projet en cours reste récupérable avec Annuler.</p>
+      <div class="grid models">${MODELES.map((m, i) => `<button type="button" data-modele="${i}">${i ? modeleThumb(i) : `<svg viewBox="0 0 10 10" aria-hidden="true"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width=".4" stroke-dasharray="1 .8"/></svg>`}<span><b>${esc(m.nom)}</b><small>${esc(m.desc)}</small></span></button>`).join("")}</div>
+    </div>`;
+    document.body.appendChild(back);
+    back.addEventListener("click", ev => {
+      if (ev.target === back || ev.target.closest("[data-close]")) { closePicker(); return; }
+      const b = ev.target.closest("[data-modele]");
+      if (!b) return;
+      closePicker();
+      commit(true);
+      project = sanitize(MODELES[+b.dataset.modele].p());
+      selected = null; viewTouched = false; lastFit = 0;
+      renderAll(); fitView(); commit(true);
+      if (mode3d) { render3dModel(); frame3d(false); lastFit = 1; }
+      flash("Modèle chargé. Annuler ramène le projet précédent.");
+    });
+    back.querySelector("[data-modele]").focus();
+  }
+  document.getElementById("btn-new").addEventListener("click", openModeles);
   document.getElementById("btn-undo").addEventListener("click", undo);
   document.getElementById("btn-redo").addEventListener("click", redo);
   const nameInput = document.getElementById("proj-name");
@@ -1733,6 +1837,6 @@ ${objs.map(o => `    <part id="${o.id}" subtype="normal_part">
   renderAll();
   requestAnimationFrame(fitView);
   commit(true);
-  window.__lettrage = { get project() { return project; }, set project(p) { project = sanitize(p); renderAll(); }, compose, buildSolids, bundle, threeMF, stl, select, rebuild, fitView, migrateV1, view, selBox, toScreen, importSvg, FORMES, formePaths, openPicker, get selected() { return selected; } };
+  window.__lettrage = { get project() { return project; }, set project(p) { project = sanitize(p); renderAll(); }, compose, buildSolids, bundle, threeMF, stl, select, rebuild, fitView, migrateV1, view, selBox, toScreen, importSvg, FORMES, formePaths, openPicker, exportGroups, openModeles, get selected() { return selected; } };
 })();
 </script>

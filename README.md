@@ -24,6 +24,9 @@ Le script injecte les polices de `fonts/` en base64 dans le source et produit `l
 - **Liseré** : bordure en relief qui suit le pourtour d'un support ou d'une lettre de fond, avec sa largeur, sa hauteur et son filament.
 - **Import SVG** : surfaces remplies et traits, transformations comprises. Le dessin est enregistré dans le projet. Une forme blanche posée sur une noire est fusionnée avec elle : seul le contour extérieur compte.
 - Contour et fonds peuvent avoir un **arrière creux** (parois, face avant pleine, fond arrière ouvert ou fermé). Les textes restent pleins.
+- **Support par texte** : un texte posé sur le contour peut avoir sa propre hauteur et sa propre largeur de support (0 = valeurs communes).
+- **Pièce séparée** : un élément coché « pièce séparée » est exporté comme un objet à part, posé à plat à côté du reste (pointillés sur le plan), pour être collé après impression.
+- **Modèles de départ** (bouton Nouveau) : plaque de naissance, lettre + prénom, cake topper, enseigne, projet vide.
 - **Annuler / rétablir** (Ctrl Z, Ctrl Maj Z), Suppr, Ctrl D pour dupliquer, flèches pour déplacer de 1 mm (10 mm avec Maj).
 - **Enregistrer / ouvrir** un projet en `.json`. Le dernier projet est aussi gardé dans le navigateur ; les réglages de l'ancienne version sont repris automatiquement.
 
