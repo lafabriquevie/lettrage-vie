@@ -161,6 +161,7 @@ input[type="range"]::-moz-range-thumb { width: 10px; height: 14px; background: v
 .fil { display: flex; gap: 6px; }
 .fil button { width: 34px; height: 30px; border-radius: 3px; border: 1px solid var(--line-2); cursor: pointer; position: relative; font-family: var(--font-mono); font-size: 10px; color: #000a; font-weight: 600; }
 .fil button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fil button.commun { width: auto; padding: 0 8px; background: transparent; color: inherit; font-weight: 500; }
 .colors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .colors label { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); text-align: center; }
 input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2); border-radius: 3px; background: var(--panel-2); padding: 3px; cursor: pointer; }
@@ -645,7 +646,7 @@ const FONT_DATA = /*FONTS*/[];
   const uid = () => "e" + (seq++).toString(36) + Math.random().toString(36).slice(2, 6);
   function newTexte(d) {
     return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, dz: 0, type: "texte", texte: "Prénom", police: "Pacifico|400", taille: 14, espacement: 0, rayon: 0, sens: "haut",
-      relief: 1.2, contour: true, support: 0, sup_largeur: 0, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
+      relief: 1.2, contour: true, support: 0, sup_largeur: 0, sup_filament: 0, filament: 2, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   function newFond(d) {
     return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, dz: 0, type: "fond", texte: "A", police: "Nunito|900", taille: 80, epaisseur: 6, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0,
@@ -654,7 +655,7 @@ const FONT_DATA = /*FONTS*/[];
   // Forme : support (posé sur le plateau, comme une lettre de fond) ou relief (posé dessus, comme un texte)
   function newForme(d) {
     return { id: uid(), separe: false, encastre: "traversant", jeu: 0.2, profondeur: 2, dz: 0, type: "forme", forme: "coeur", svg: null, taille: 40, largeur: 0, coin: 0, branches: 5, pose: "socle",
-      epaisseur: 3, relief: 1.2, contour: false, support: 0, sup_largeur: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
+      epaisseur: 3, relief: 1.2, contour: false, support: 0, sup_largeur: 0, sup_filament: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
       filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
   const isSocle = e => e.type === "fond" || (e.type === "forme" && e.pose !== "relief");
@@ -702,6 +703,7 @@ const FONT_DATA = /*FONTS*/[];
       }
       n.lis_filament = clamp(Math.round(+n.lis_filament) || 2, 1, 4);
       n.separe = !!n.separe;
+      n.sup_filament = clamp(Math.round(+n.sup_filament) || 0, 0, 4);
       n.dz = clamp(+n.dz || 0, -30, 60);
       if (!["traversant", "poche", "aucun"].includes(n.encastre)) n.encastre = "traversant";
       n.filament = clamp(Math.round(+n.filament) || 1, 1, 4);
@@ -818,13 +820,14 @@ const FONT_DATA = /*FONTS*/[];
       const members = textes.filter(e => e.contour);
       const hOf = e => (e.support > 0 ? e.support : c.epaisseur);
       const wOf = e => (e.sup_largeur > 0 ? e.sup_largeur : c.largeur);
-      const groups = [...new Set(members.map(e => hOf(e) + "|" + wOf(e)))].map(k => k.split("|").map(Number)).sort((a, b) => a[0] - b[0] || b[1] - a[1]);
-      for (const [h, w] of groups) {
-        const u = union(members.filter(e => hOf(e) === h && wOf(e) === w).flatMap(e => shapes.get(e.id)));
+      const fOf = e => (e.sup_filament > 0 ? e.sup_filament : c.filament);
+      const groups = [...new Set(members.map(e => hOf(e) + "|" + wOf(e) + "|" + fOf(e)))].map(k => k.split("|").map(Number)).sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+      for (const [h, w, f] of groups) {
+        const u = union(members.filter(e => hOf(e) === h && wOf(e) === w && fOf(e) === f).flatMap(e => shapes.get(e.id)));
         if (!u.length) continue;
         const cp = offset(offset(u, c.lissage + w), -c.lissage);
         contourPaths.push(...cp);
-        place(cp, h, c.filament, c.arriere === "creux" ? c : null);
+        place(cp, h, f, c.arriere === "creux" ? c : null);
       }
     }
     // Les textes se posent sur les fonds et le contour, pas les uns sur les autres ;
@@ -1389,8 +1392,10 @@ const FONT_DATA = /*FONTS*/[];
       <div ${e.contour ? "" : "hidden"} style="display:flex;flex-direction:column;gap:8px">
         ${c.actif ? numCtl("support", `Hauteur du support (0 = commune, ${c.epaisseur} mm)`, e.support || 0, 0, 60, 0.2, "mm")
             + numCtl("sup_largeur", `Largeur autour des lettres (0 = commune, ${c.largeur} mm)`, e.sup_largeur || 0, 0, 15, 0.1, "mm")
+            + `<div class="field"><span>Filament du support</span><div class="fil" role="group" aria-label="Filament du support">${project.filaments.map((col, i) =>
+              `<button type="button" data-fil="${i + 1}" data-filk="sup_filament" aria-pressed="${e.sup_filament === i + 1}" style="background:${col}" aria-label="Filament ${i + 1}">${i + 1}</button>`).join("")}<button type="button" class="commun" data-fil="0" data-filk="sup_filament" aria-pressed="${!(e.sup_filament > 0)}">Commun (F${c.filament})</button></div></div>`
           : `<p class="hint">Le contour est désactivé pour tout le projet.</p><button type="button" class="btn sm" data-do="contour-on">Activer le contour</button>`}
-        <p class="hint">Arrondi et filament du contour : dans les réglages du projet (clic sur une zone vide du plan).</p>
+        <p class="hint">Arrondi et filament commun du contour : dans les réglages du projet (clic sur une zone vide du plan).</p>
       </div>`;
   };
   const lisereCtl = e => `
