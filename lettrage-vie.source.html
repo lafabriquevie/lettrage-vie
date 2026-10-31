@@ -296,8 +296,8 @@ const FONT_DATA = /*FONTS*/[];
     return out;
   }
   const union = a => (a.length ? clip(CL.ClipType.ctUnion, a) : []);
-  const inter = (a, b) => (a.length && b.length ? clip(CL.ClipType.ctIntersection, a, b) : []);
-  const diff = (a, b) => (!a.length ? [] : !b.length ? a : clip(CL.ClipType.ctDifference, a, b));
+  const inter = (a, b) => (a.length && b.length && overlap(a, b) ? clip(CL.ClipType.ctIntersection, a, b) : []);
+  const diff = (a, b) => (!a.length ? [] : !b.length || !overlap(a, b) ? a : clip(CL.ClipType.ctDifference, a, b));
   function offset(paths, mm) {
     if (!paths.length || mm === 0) return paths;
     const co = new CL.ClipperOffset(2, 0.02 * S);
@@ -305,6 +305,17 @@ const FONT_DATA = /*FONTS*/[];
     const out = new CL.Paths();
     co.Execute(out, mm * S);
     return out;
+  }
+  // Boîtes englobantes mémorisées : évitent un passage Clipper entre des régions qui ne se touchent pas
+  const bbCache = new WeakMap();
+  function bb(paths) {
+    let v = bbCache.get(paths);
+    if (v === undefined) { v = bounds(paths); bbCache.set(paths, v); }
+    return v;
+  }
+  function overlap(a, b) {
+    const p = bb(a), q = bb(b);
+    return !!p && !!q && p.x0 <= q.x1 && q.x0 <= p.x1 && p.y0 <= q.y1 && q.y0 <= p.y1;
   }
   function bounds(paths) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -766,7 +777,6 @@ const FONT_DATA = /*FONTS*/[];
     const els = pr.elements.filter(e => e.visible !== false);
     const pieces = []; // {filament, paths, z0, z1, creux?}
     let field = [];
-    const fieldUnion = () => union(field.flatMap(r => r.paths));
     function place(paths, top, filament, caisson, relief) {
       if (!paths.length) return;
       for (const r of field) {
@@ -774,10 +784,12 @@ const FONT_DATA = /*FONTS*/[];
         const part = inter(paths, r.paths);
         if (part.length) pieces.push({ filament, paths: part, z0: r.h, z1: top, relief });
       }
-      const free = diff(paths, fieldUnion());
+      // Régions du champ disjointes : inutile de les réunir, seules celles qui chevauchent comptent
+      const free = diff(paths, field.filter(r => overlap(paths, r.paths)).flatMap(r => r.paths));
       if (free.length) pieces.push({ filament, paths: free, z0: 0, z1: top, caisson, relief });
       const next = [];
       for (const r of field) {
+        if (!overlap(r.paths, paths)) { next.push(r); continue; }
         const out = diff(r.paths, paths), inn = inter(r.paths, paths);
         if (out.length) next.push({ paths: out, h: r.h });
         if (inn.length) next.push({ paths: inn, h: Math.max(r.h, top) });
@@ -919,6 +931,32 @@ const FONT_DATA = /*FONTS*/[];
     }
     return p;
   }
+  // Tracés en millimètres, mémorisés par contour : le plan se redessine par une simple transformation
+  const pathCache = new WeakMap();
+  function pathW(paths) {
+    let p = pathCache.get(paths);
+    if (!p) {
+      p = new Path2D();
+      for (const poly of paths) { poly.forEach((q, i) => (i ? p.lineTo(q.X / S, q.Y / S) : p.moveTo(q.X / S, q.Y / S))); p.closePath(); }
+      pathCache.set(paths, p);
+    }
+    return p;
+  }
+  // Contour pointillé des pièces imprimées à part, calculé une fois par composition
+  const sepCache = new WeakMap();
+  function sepOutline(c, id) {
+    let m = sepCache.get(c);
+    if (!m) { m = new Map(); sepCache.set(c, m); }
+    if (!m.has(id)) { const sh = c.shapes.get(id); m.set(id, sh ? offset(offset(sh, 6), -3) : []); }
+    return m.get(id);
+  }
+  // Glisser une pièce : on fige le reste (composé sans elle) et on déplace son aperçu par transformation,
+  // sans recalcul Clipper à chaque mouvement. Le calcul complet a lieu au relâchement.
+  function makePreview(e) {
+    const others = { ...project, elements: project.elements.filter(x => x.id !== e.id) };
+    const solo = compose({ ...project, elements: [e] });
+    return { base: compose(others), solo, sep: e.separe ? sepOutline(solo, e.id) : null };
+  }
   function resizeCanvas(cv) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = cv.clientWidth, h = cv.clientHeight;
@@ -960,20 +998,37 @@ const FONT_DATA = /*FONTS*/[];
     ctx.strokeRect(px0, py0, PLATE * view.scale, PLATE * view.scale);
     ctx.setLineDash([]);
     if (!comp) return;
-    // Pièces, de la plus basse à la plus haute
     const fil = project.filaments;
-    const sorted = comp.pieces.slice().sort((a, b) => a.z1 - b.z1);
-    for (const p of sorted) {
-      const path = pathOf(p.paths);
-      ctx.fillStyle = fil[p.filament - 1];
-      ctx.fill(path, "nonzero");
-      ctx.strokeStyle = "#00000066"; ctx.lineWidth = 1; ctx.stroke(path);
-      if (p.caisson) { ctx.strokeStyle = "#0008"; ctx.setLineDash([3, 3]); ctx.stroke(pathOf(offset(p.paths, -p.caisson.paroi))); ctx.setLineDash([]); }
+    const world = () => ctx.setTransform(dpr * view.scale, 0, 0, -dpr * view.scale, dpr * (W / 2 - view.cx * view.scale), dpr * (H / 2 + view.cy * view.scale));
+    const px = 1 / view.scale; // un pixel écran, en mm
+    function drawPieces(pieces) {
+      for (const p of pieces.slice().sort((a, b) => a.z1 - b.z1)) {
+        const path = pathW(p.paths);
+        ctx.fillStyle = fil[p.filament - 1];
+        ctx.fill(path, "nonzero");
+        ctx.strokeStyle = "#00000066"; ctx.lineWidth = px; ctx.stroke(path);
+        if (p.caisson) { ctx.strokeStyle = "#0008"; ctx.setLineDash([3 * px, 3 * px]); ctx.stroke(pathW(offset(p.paths, -p.caisson.paroi))); ctx.setLineDash([]); }
+      }
     }
+    const pv = drag && drag.preview;
+    const c0 = pv ? pv.base : comp;
+    world();
+    // Pièces, de la plus basse à la plus haute
+    drawPieces(c0.pieces);
     // Pièces imprimées à part : contour pointillé
-    ctx.strokeStyle = "#3fcfe0"; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
-    for (const x of project.elements) if (x.separe && x.visible !== false && comp.shapes.get(x.id)) ctx.stroke(pathOf(offset(offset(comp.shapes.get(x.id), 6), -3)));
+    ctx.strokeStyle = "#3fcfe0"; ctx.lineWidth = 1.5 * px; ctx.setLineDash([5 * px, 4 * px]);
+    for (const x of project.elements) if (x.separe && x.visible !== false && c0.shapes.get(x.id)) ctx.stroke(pathW(sepOutline(c0, x.id)));
     ctx.setLineDash([]);
+    if (pv) {
+      const e = project.elements.find(x => x.id === drag.id);
+      if (e) {
+        const k = e.taille / (drag.taille0 || e.taille || 1), kx = drag.largeur0 > 0 ? (e.largeur || drag.largeur0) / drag.largeur0 : k;
+        ctx.translate(e.x, e.y); ctx.rotate(e.rot * Math.PI / 180); ctx.scale(kx, k); ctx.rotate(-drag.rot0 * Math.PI / 180); ctx.translate(-drag.x0, -drag.y0);
+        drawPieces(pv.solo.pieces);
+        if (pv.sep) { ctx.strokeStyle = "#3fcfe0"; ctx.lineWidth = 1.5 * px; ctx.setLineDash([5 * px, 4 * px]); ctx.stroke(pathW(pv.sep)); ctx.setLineDash([]); }
+      }
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Sélection
     const e = project.elements.find(x => x.id === selected);
     if (e && e.visible !== false) {
@@ -1098,6 +1153,7 @@ const FONT_DATA = /*FONTS*/[];
     }
     const e = project.elements.find(x => x.id === drag.id);
     if (!e) return;
+    if (!drag.preview) drag.preview = makePreview(e);
     const [wx, wy] = toWorld(ev.offsetX, ev.offsetY);
     if (drag.kind === "move") {
       let nx = drag.x0 + wx - drag.wx, ny = drag.y0 + wy - drag.wy;
@@ -1143,7 +1199,8 @@ const FONT_DATA = /*FONTS*/[];
   // Pendant un glissement : recalcul rapide limité à une image sur deux environ
   let liveTimer = 0;
   function liveUpdate() {
-    if (!liveTimer) liveTimer = setTimeout(() => { liveTimer = 0; rebuild(true); }, 60);
+    if (drag && drag.preview) queuePlan(); // aperçu pendant le glisser, calcul complet au relâchement
+    else if (!liveTimer) liveTimer = setTimeout(() => { liveTimer = 0; rebuild(true); }, 60);
     updatePropsLive();
   }
 
