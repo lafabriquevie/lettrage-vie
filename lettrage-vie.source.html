@@ -1449,7 +1449,7 @@ const FONT_DATA = /*FONTS*/[];
           + (e.encastre === "aucun" ? "" : `<div class="row">${numCtl("jeu", "Jeu", e.jeu, 0, 1, 0.05, "mm")}${e.encastre === "poche" ? numCtl("profondeur", "Profondeur", e.profondeur, 0.4, 30, 0.2, "mm") : ""}</div>`)
           : ""}
         <p class="hint">${!e.separe ? "Utile pour une pièce trop haute ou d'une autre matière, à coller après impression."
-          : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau. Vue 3D « Impression » pour voir la découpe."
+          : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau (dans une lettre creuse : jusqu'à un fond de l'épaisseur des parois). Vue 3D « Impression » pour voir la découpe."
           : e.encastre === "poche" ? "Le support est creusé à l'empreinte de la pièce (plus le jeu), sur la profondeur choisie."
           : "La pièce se colle sur le dessus, sans logement."}</p>
         ${e.separe && isSocle(e) ? `<p class="hint">Support séparé : les textes et icônes posés dessus doivent aussi être en pièce séparée pour y être découpés.</p>` : ""}
@@ -1744,12 +1744,11 @@ const FONT_DATA = /*FONTS*/[];
   // Objets à exporter : l'ensemble, puis chaque pièce séparée. L'ensemble reçoit une découpe ou une poche
   // à l'empreinte de chaque pièce séparée (plus le jeu), pour pouvoir l'encastrer.
   // layout « print » : pièces posées à plat à côté ; « monte » : pièces à leur place de montage.
-  // Logement dans un support creux : la face avant descend au fond du logement et reste un capot,
-  // entouré d'une paroi ; le creux continue dessous au lieu d'être rempli. Pièces pleines disjointes.
+  // Logement dans un support creux : un fond aussi épais que les parois, entouré d'une paroi ; le creux continue dessous au lieu d'être rempli. Pièces pleines disjointes.
   function caissonPoche(q, cut, zb) {
     const k = q.caisson, P = q.paths, C = inter(P, cut), out = [];
     const cap = Math.min(k.capot, q.z1 - q.z0), fz = q.z0 + Math.min(k.fond || 0, q.z1 - q.z0 - cap);
-    const fb = Math.max(fz, zb - cap); // bas du capot au fond du logement
+    const fb = Math.max(fz, zb - k.paroi); // fond du logement, aussi épais que les parois
     const W = diff(P, offset(P, -k.paroi)); // paroi extérieure
     const R = diff(inter(offset(cut, k.paroi), P), cut.concat(W)); // paroi autour du logement
     const add = (paths, z0, z1) => { if (paths.length && z1 - z0 > 0.01) out.push({ filament: q.filament, paths, z0, z1 }); };
@@ -1782,7 +1781,9 @@ const FONT_DATA = /*FONTS*/[];
       if (mode === "aucun" || !under.length) { sp.z = host.z + (under.length ? top : 0) + dz; return; }
       const cut = offset(sp.fp, sp.e.jeu || 0);
       // Le fond du logement suit le décalage Z : le support reste plein sous la pièce, sans vide
-      const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : 0) + dz;
+      // Support creux : la découpe s'arrête sur un fond de l'épaisseur des parois, sans traverser
+      const creux = under.find(q => q.caisson);
+      const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : creux ? creux.z0 + creux.caisson.paroi : 0) + dz;
       sp.z = host.z + zb;
       if (zb >= top) return; // pièce entièrement au-dessus du support : pas de logement
       // Logement plus profond que le support de la pièce : on rehausse la pièce pour qu'elle remplisse
