@@ -92,7 +92,17 @@ button { font: inherit; color: inherit; }
 .tabs button + button { border-left: 1px solid var(--line-2); }
 .tabs button[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); }
 .zoom { display: inline-flex; gap: 4px; }
-.status { position: absolute; top: 48px; left: 12px; right: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); pointer-events: none; }
+.status { position: absolute; top: 48px; left: 12px; right: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.journal { font-family: var(--font-mono); font-size: 11px; background: #0a0f14e6; border: 1px solid var(--line-2); border-radius: 2px; max-width: min(560px, 100%); }
+.journal summary { cursor: pointer; padding: 5px 9px; color: var(--muted); list-style: none; user-select: none; }
+.journal summary::-webkit-details-marker { display: none; }
+.journal summary::before { content: "▸ "; }
+.journal[open] summary::before { content: "▾ "; }
+.journal summary.alert { color: var(--danger); }
+.journal ol { list-style: none; margin: 0; padding: 0 9px 7px; max-height: 180px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.journal li { color: var(--fg); overflow-wrap: anywhere; user-select: text; }
+.journal li.err { color: var(--danger); }
+.journal li time { color: var(--muted); margin-right: 6px; }
 .status.err { color: var(--danger); }
 .hud { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; flex-wrap: wrap; pointer-events: none; }
 .hud > * { pointer-events: auto; }
@@ -243,7 +253,8 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
       </div>
     </div>
     <div class="status" id="status" role="status"></div>
-    <div class="hud"><div class="dims" id="dims"></div></div>
+    <div class="hud"><div class="dims" id="dims"></div>
+      <details class="journal" id="journal"><summary>Journal</summary><ol id="journal-list" aria-live="polite"></ol></details></div>
   </main>
 
   <section class="panel props" aria-label="Propriétés">
@@ -1210,6 +1221,24 @@ const FONT_DATA = /*FONTS*/[];
 
   // ---------- Recalcul ----------
   const statusEl = document.getElementById("status");
+  // Journal repliable des messages système : historique complet, le plus récent en haut
+  const journal = document.getElementById("journal"), journalList = document.getElementById("journal-list");
+  const journalSum = journal.querySelector("summary");
+  let journalN = 0, lastLog = "";
+  function log(msg, err) {
+    if (!msg || msg === lastLog) return;
+    lastLog = msg; journalN++;
+    const li = document.createElement("li");
+    if (err) li.className = "err";
+    const t = document.createElement("time");
+    t.textContent = new Date().toLocaleTimeString("fr-FR");
+    li.append(t, msg);
+    journalList.prepend(li);
+    while (journalList.children.length > 100) journalList.lastChild.remove();
+    journalSum.textContent = `Journal (${journalN})`;
+    if (err && !journal.open) journalSum.classList.add("alert");
+  }
+  journal.addEventListener("toggle", () => { if (journal.open) journalSum.classList.remove("alert"); });
   const dimsEl = document.getElementById("dims");
   let solids3dDirty = true;
   function rebuild(light) {
@@ -1221,13 +1250,14 @@ const FONT_DATA = /*FONTS*/[];
         const w = b.w / S, h = b.h / S, z = Math.max(0, ...comp.pieces.map(p => p.z1));
         const m = (k, v) => `<span class="m"><i>${k}</i><b>${v.toFixed(1)}<small>mm</small></b></span>`;
         dimsEl.innerHTML = m("Largeur", w) + m("Hauteur", h) + m("Épaisseur", z);
-        if (w > PLATE || h > PLATE) { statusEl.textContent = `Attention : plus grand qu'un plateau de ${PLATE} mm.`; statusEl.classList.add("err"); }
+        if (w > PLATE || h > PLATE) { statusEl.textContent = `Attention : plus grand qu'un plateau de ${PLATE} mm.`; statusEl.classList.add("err"); log(statusEl.textContent, true); }
       } else dimsEl.innerHTML = "";
       document.getElementById("btn-export").disabled = !b;
       document.getElementById("btn-bambu").disabled = !b;
     } catch (err) {
       statusEl.textContent = "Calcul impossible avec ces réglages : " + err.message;
       statusEl.classList.add("err");
+      log(statusEl.textContent, true);
     }
     solids3dDirty = true;
     if (!light && mode3d) render3dModel();
@@ -1909,7 +1939,14 @@ ${g.objs.map(o => `    <part id="${o.id}" subtype="normal_part">
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     return "téléchargé";
   }
-  function flash(msg, err) { statusEl.textContent = msg; statusEl.classList.toggle("err", !!err); }
+  // Message court sur la vue (effacé après quelques secondes), texte complet dans le journal
+  let flashTimer = 0;
+  function flash(msg, err) {
+    statusEl.textContent = msg; statusEl.classList.toggle("err", !!err);
+    log(msg, err);
+    clearTimeout(flashTimer);
+    if (!/…$/.test(msg)) flashTimer = setTimeout(() => { if (statusEl.textContent === msg) { statusEl.textContent = ""; statusEl.classList.remove("err"); } }, err ? 8000 : 4000);
+  }
   document.getElementById("btn-export").addEventListener("click", async ev => {
     const btn = ev.currentTarget;
     btn.disabled = true; flash("Préparation des fichiers…");
