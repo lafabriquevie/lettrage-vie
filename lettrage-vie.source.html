@@ -910,17 +910,19 @@ const FONT_DATA = /*FONTS*/[];
     }
     return out;
   }
-  // Renfort plein derrière la prise (épaisseur mini de paroi), puis ouverture débouchante au profil de la prise
+  // Surépaisseur pleine autour de la prise (épaisseur mini de paroi), puis ouverture débouchante au profil de la prise
   function percer(pieces, usbs) {
     let out = pieces;
     for (const u of usbs) {
       const T = paths => translate(rotate(paths, u.rot), Math.round(u.x * S), Math.round(u.y * S));
-      const zTop = u.hauteur + Math.max(u.corps_h, u.ore_h) / 2 + u.marge;
+      // Surépaisseur autour du logement seulement : marge au-dessus et au-dessous de la prise
+      const hh = Math.max(u.corps_h, u.ore_h) / 2;
+      const zTop = u.hauteur + hh + u.marge, zBot = u.hauteur - hh - u.marge;
       const B0 = T(usbRect(u, usbW(u) + 2 * u.marge, 0, u.epaisseur));
-      const hosts = out.filter(q => !q.relief && q.z0 < zTop && inter(q.paths, B0).length);
+      const hosts = out.filter(q => !q.relief && q.z0 < zTop && q.z1 > zBot && inter(q.paths, B0).length);
       if (hosts.length) {
         const B = inter(B0, union(hosts.flatMap(q => q.paths)));
-        const z0 = Math.min(...hosts.map(q => q.z0)), z1 = Math.min(zTop, Math.max(...hosts.map(q => q.z1)));
+        const z0 = Math.max(zBot, Math.min(...hosts.map(q => q.z0))), z1 = Math.min(zTop, Math.max(...hosts.map(q => q.z1)));
         const fil = hosts.reduce((a, q) => (q.z0 < a.z0 ? q : a)).filament;
         if (B.length && z1 > z0) { out = cutSlab(out, B, z0, z1); out.push({ filament: fil, paths: B, z0, z1 }); }
       }
@@ -1614,7 +1616,7 @@ const FONT_DATA = /*FONTS*/[];
           <p class="hint">Cotes jeu compris. Oreilles à 0 pour un simple rectangle.</p></div>
         <div class="group"><h3>Renfort</h3>
           <div class="row">${numCtl("epaisseur", "Épaisseur mini de paroi", e.epaisseur, 1, 60, 0.1, "mm")}${numCtl("marge", "Marge autour", e.marge, 0, 20, 0.5, "mm")}</div>
-          <p class="hint">Bloc plein ajouté à l'intérieur de la lettre derrière la prise, jusqu'au-dessus de l'ouverture plus la marge ; l'ouverture le traverse.</p></div>`;
+          <p class="hint">Surépaisseur pleine à l'intérieur de la lettre autour de la prise : la marge s'ajoute au-dessus, au-dessous et sur les côtés de l'ouverture, qui la traverse. Si le bas de l'ouverture moins la marge passe sous la lettre, elle descend jusqu'à la face inférieure.</p></div>`;
       return;
     }
     propsTitle.innerHTML = `${e.type === "forme" ? esc(labelOf(e)) : TYPES[e.type].nom} <small>F${e.filament}</small>`;
