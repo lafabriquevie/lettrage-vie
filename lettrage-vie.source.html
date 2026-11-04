@@ -1452,6 +1452,7 @@ const FONT_DATA = /*FONTS*/[];
           : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau. Vue 3D « Impression » pour voir la découpe."
           : e.encastre === "poche" ? "Le support est creusé à l'empreinte de la pièce (plus le jeu), sur la profondeur choisie."
           : "La pièce se colle sur le dessus, sans logement."}</p>
+        ${e.separe && isSocle(e) ? `<p class="hint">Support séparé : les textes et icônes posés dessus doivent aussi être en pièce séparée pour y être découpés.</p>` : ""}
       </div>`;
     if (e.type === "forme") propsBody.innerHTML = formeProps(e, common);
     else if (e.type === "texte") {
@@ -1768,20 +1769,22 @@ const FONT_DATA = /*FONTS*/[];
       const fp = union(comp.pieces.flatMap(q => q.paths));
       return { e, nom: labelOf(e), comp, fp, z: 0 };
     });
-    let mainComp = main.length ? compose({ ...pr, elements: main }) : null;
-    if (mainComp) for (const sp of seps) {
-      if (!sp.fp.length) continue;
+    // Hôtes des logements : l'ensemble principal, et les supports eux-mêmes séparés (lettre de fond imprimée à part),
+    // qui reçoivent les textes et icônes séparés posés dessus
+    const hosts = [];
+    if (main.length) hosts.push({ comp: compose({ ...pr, elements: main }), z: 0 });
+    function encastrer(host, sp) {
       // Hauteur du support sous la pièce (sans compter les textes et icônes en relief voisins)
-      const under = mainComp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length);
+      const under = host.comp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length);
       const top = under.reduce((m, q) => Math.max(m, q.z1), 0);
       const mode = sp.e.encastre || "aucun";
       const dz = +sp.e.dz || 0;
-      if (mode === "aucun" || !under.length) { sp.z = (under.length ? top : 0) + dz; continue; }
+      if (mode === "aucun" || !under.length) { sp.z = host.z + (under.length ? top : 0) + dz; return; }
       const cut = offset(sp.fp, sp.e.jeu || 0);
       // Le fond du logement suit le décalage Z : le support reste plein sous la pièce, sans vide
       const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : 0) + dz;
-      sp.z = zb;
-      if (zb >= top) continue; // pièce entièrement au-dessus du support : pas de logement
+      sp.z = host.z + zb;
+      if (zb >= top) return; // pièce entièrement au-dessus du support : pas de logement
       // Logement plus profond que le support de la pièce : on rehausse la pièce pour qu'elle remplisse
       // le logement jusqu'au dessus du support principal, et ses lettres se posent dessus comme en montage normal
       const need = top - zb, low = sp.comp.pieces.filter(q => !q.relief);
@@ -1797,7 +1800,7 @@ const FONT_DATA = /*FONTS*/[];
         sp.comp = { ...sp.comp, pieces: [{ filament: fil, paths: sp.fp, z0: 0, z1: need }, ...keep] };
       }
       const next = [];
-      for (const q of mainComp.pieces) {
+      for (const q of host.comp.pieces) {
         if (q.z1 <= zb || !inter(q.paths, cut).length) { next.push(q); continue; }
         if (q.caisson && zb > q.z0) { next.push(...caissonPoche(q, cut, zb)); continue; }
         const out = diff(q.paths, cut);
@@ -1805,9 +1808,22 @@ const FONT_DATA = /*FONTS*/[];
         const inn = zb > q.z0 ? inter(q.paths, cut) : [];
         if (inn.length) next.push({ filament: q.filament, paths: inn, z0: q.z0, z1: zb });
       }
-      mainComp = { ...mainComp, pieces: next };
+      host.comp = { ...host.comp, pieces: next };
     }
-    if (!mainComp) for (const sp of seps) sp.z = +sp.e.dz || 0;
+    for (const sp of seps) sp.z = +sp.e.dz || 0;
+    // Supports séparés d'abord (ils se logent dans l'ensemble), puis les pièces qui se posent sur eux
+    for (const sp of [...seps.filter(x => isSocle(x.e)), ...seps.filter(x => !isSocle(x.e))]) {
+      if (!sp.fp.length) continue;
+      const cands = hosts.filter(h => h.sp !== sp && (!isSocle(sp.e) || !h.sp) && h.comp.pieces.some(q => !q.relief && inter(q.paths, sp.fp).length));
+      if (cands.length) {
+        const top = h => h.z + Math.max(...h.comp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length).map(q => q.z1));
+        encastrer(cands.reduce((a, h) => (top(h) > top(a) ? h : a)), sp);
+      }
+      if (isSocle(sp.e)) hosts.push({ comp: sp.comp, z: sp.z, sp });
+    }
+    // Les supports séparés récupèrent leur composition découpée
+    for (const h of hosts) if (h.sp) h.sp.comp = h.comp;
+    const mainComp = main.length ? hosts[0].comp : null;
     const groups = [];
     if (mainComp) groups.push({ nom: pr.nom || "Lettrage", comp: mainComp });
     groups.push(...seps);
