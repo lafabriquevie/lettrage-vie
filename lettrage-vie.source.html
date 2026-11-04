@@ -1765,6 +1765,20 @@ const FONT_DATA = /*FONTS*/[];
       const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : 0) + dz;
       sp.z = zb;
       if (zb >= top) continue; // pièce entièrement au-dessus du support : pas de logement
+      // Logement plus profond que le support de la pièce : on rehausse la pièce pour qu'elle remplisse
+      // le logement jusqu'au dessus du support principal, et ses lettres se posent dessus comme en montage normal
+      const need = top - zb, low = sp.comp.pieces.filter(q => !q.relief);
+      const baseTop = low.reduce((m, q) => Math.max(m, q.z1), 0);
+      if (need > baseTop + 0.01) {
+        const d = need - baseTop;
+        const fil = low.length ? low.reduce((a, q) => (q.z0 < a.z0 ? q : a)).filament : sp.e.filament;
+        const keep = [];
+        for (const q of sp.comp.pieces) {
+          if (q.relief) keep.push({ ...q, z0: q.z0 + d, z1: q.z1 + d });
+          else if (q.z1 > need) keep.push({ ...q, z0: Math.max(q.z0, need) });
+        }
+        sp.comp = { ...sp.comp, pieces: [{ filament: fil, paths: sp.fp, z0: 0, z1: need }, ...keep] };
+      }
       const next = [];
       for (const q of mainComp.pieces) {
         if (q.z1 <= zb || !inter(q.paths, cut).length) { next.push(q); continue; }
