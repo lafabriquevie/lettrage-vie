@@ -7,7 +7,8 @@ PORT = 8765
 ORIGINE = f"http://localhost:{PORT}"
 ici = os.path.dirname(os.path.abspath(__file__))
 dossier = os.path.join(os.path.expanduser("~"), "Downloads", "Lettrage Vié")
-APP = "Bambu Studio"
+# Nom de l'application sur macOS : on essaie les variantes connues, puis l'application par défaut des .3mf
+APPS = [os.environ.get("BAMBU_APP"), "BambuStudio", "Bambu Studio"]
 
 
 class Gestion(BaseHTTPRequestHandler):
@@ -36,14 +37,16 @@ class Gestion(BaseHTTPRequestHandler):
             f.write(self.rfile.read(taille))
         try:
             if sys.platform == "darwin":
-                subprocess.run(["open", "-a", APP, chemin], check=True)
+                essais = [["open", "-a", a, chemin] for a in APPS if a] + [["open", chemin]]
+                if not any(subprocess.run(c, capture_output=True).returncode == 0 for c in essais):
+                    raise RuntimeError("aucune application trouvée pour les .3mf")
             elif os.name == "nt":
                 os.startfile(chemin)
             else:
                 subprocess.run(["xdg-open", chemin], check=True)
             ok, msg = True, chemin
         except Exception as e:
-            ok, msg = False, f"{chemin} enregistré, mais {APP} ne s'est pas ouvert ({e})"
+            ok, msg = False, f"{chemin} enregistré, mais Bambu Studio ne s'est pas ouvert ({e})"
         corps = msg.encode()
         self.send_response(200 if ok else 500)
         self.send_header("Content-Type", "text/plain; charset=utf-8")

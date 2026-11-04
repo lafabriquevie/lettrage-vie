@@ -21,7 +21,7 @@ Le script injecte les polices de `fonts/` en base64 dans le source et produit `l
 python3 serve.py
 ```
 
-Reconstruit la page, la sert sur http://localhost:8765 et l'ouvre dans le navigateur. Le bouton « Ouvrir dans Bambu » envoie alors le 3MF au serveur local, qui l'enregistre dans `~/Downloads/Lettrage Vié/` et lance Bambu Studio dessus (`open -a "Bambu Studio"` sur macOS). Le serveur n'écoute que sur la machine et n'accepte que les envois de sa propre page. Page ouverte directement depuis le disque : le bouton télécharge le .3mf seul.
+Reconstruit la page, la sert sur http://localhost:8765 et l'ouvre dans le navigateur. Le bouton « Ouvrir dans Bambu » envoie alors le 3MF au serveur local, qui l'enregistre dans `~/Downloads/Lettrage Vié/` et lance Bambu Studio dessus (sur macOS, `open -a BambuStudio`, puis « Bambu Studio », puis l'application par défaut des .3mf ; un autre nom se passe par la variable `BAMBU_APP`). Le serveur n'écoute que sur la machine et n'accepte que les envois de sa propre page. Page ouverte directement depuis le disque : le bouton télécharge le .3mf seul.
 
 ## La page
 
