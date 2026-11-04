@@ -199,7 +199,7 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
       <button type="button" class="btn sm" id="btn-new">Nouveau</button>
       <button type="button" class="btn sm" id="btn-open">Ouvrir</button>
       <button type="button" class="btn sm" id="btn-save">Enregistrer</button>
-      <button type="button" class="btn" id="btn-bambu" hidden title="Télécharge le .3mf seul ; Chrome peut l'ouvrir directement dans Bambu Studio">Ouvrir dans Bambu</button>
+      <button type="button" class="btn" id="btn-bambu" hidden title="Envoie le 3MF à Bambu Studio (outil lancé avec python3 serve.py)">Ouvrir dans Bambu</button>
       <button type="button" class="btn primary" id="btn-export">Exporter 3MF + STL</button>
       <input type="file" id="file-open" accept=".json,application/json" hidden>
     </div>
@@ -1920,16 +1920,23 @@ ${g.objs.map(o => `    <part id="${o.id}" subtype="normal_part">
       flash(e && e.code === "declined" ? "Export annulé." : "Export impossible ici. Ouvre la page dans claude.ai, ou génère-la avec build.py et ouvre-la dans ton navigateur.", !(e && e.code === "declined"));
     } finally { btn.disabled = false; }
   });
-  // Version locale (fichier ouvert depuis le disque) : le .3mf seul, sans ZIP, pour que le navigateur l'ouvre
-  // directement dans Bambu Studio (« Toujours ouvrir les fichiers de ce type » dans Chrome)
+  // Version locale. Servie par serve.py : le serveur enregistre le .3mf et lance Bambu Studio.
+  // Ouverte depuis le disque : téléchargement du .3mf seul, sans ZIP.
   const btnBambu = document.getElementById("btn-bambu");
-  if (location.protocol === "file:") btnBambu.hidden = false;
+  const viaServeur = location.protocol === "http:" && ["localhost", "127.0.0.1"].includes(location.hostname);
+  if (viaServeur || location.protocol === "file:") btnBambu.hidden = false;
   btnBambu.addEventListener("click", async () => {
     btnBambu.disabled = true; flash("Préparation du 3MF…");
     try {
-      const name = slug();
-      flash(`${name}.3mf ${await saveFile(name + ".3mf", new Blob([threeMF(exportGroups(project))], { type: "model/3mf" }))}. Ouvre-le pour le charger dans Bambu Studio.`);
-    } catch (e) { flash("Export du 3MF impossible.", true); }
+      const name = slug(), data = threeMF(exportGroups(project));
+      if (viaServeur) {
+        const r = await fetch("/bambu", { method: "POST", headers: { "X-Lettrage": "1", "X-Nom": name }, body: data });
+        const t = await r.text();
+        flash(r.ok ? `Ouvert dans Bambu Studio (${t}).` : t || "Bambu Studio ne s'est pas ouvert.", !r.ok);
+      } else {
+        flash(`${name}.3mf ${await saveFile(name + ".3mf", new Blob([data], { type: "model/3mf" }))}. Pour l'ouvrir directement dans Bambu, lance l'outil avec python3 serve.py.`);
+      }
+    } catch (e) { flash("Envoi vers Bambu impossible : serve.py est-il lancé ?", true); }
     finally { btnBambu.disabled = false; }
   });
   document.getElementById("btn-save").addEventListener("click", async () => {
