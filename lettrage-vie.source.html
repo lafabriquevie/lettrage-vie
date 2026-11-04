@@ -199,6 +199,7 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
       <button type="button" class="btn sm" id="btn-new">Nouveau</button>
       <button type="button" class="btn sm" id="btn-open">Ouvrir</button>
       <button type="button" class="btn sm" id="btn-save">Enregistrer</button>
+      <button type="button" class="btn" id="btn-bambu" hidden title="Télécharge le .3mf seul ; Chrome peut l'ouvrir directement dans Bambu Studio">Ouvrir dans Bambu</button>
       <button type="button" class="btn primary" id="btn-export">Exporter 3MF + STL</button>
       <input type="file" id="file-open" accept=".json,application/json" hidden>
     </div>
@@ -1223,6 +1224,7 @@ const FONT_DATA = /*FONTS*/[];
         if (w > PLATE || h > PLATE) { statusEl.textContent = `Attention : plus grand qu'un plateau de ${PLATE} mm.`; statusEl.classList.add("err"); }
       } else dimsEl.innerHTML = "";
       document.getElementById("btn-export").disabled = !b;
+      document.getElementById("btn-bambu").disabled = !b;
     } catch (err) {
       statusEl.textContent = "Calcul impossible avec ces réglages : " + err.message;
       statusEl.classList.add("err");
@@ -1917,6 +1919,18 @@ ${g.objs.map(o => `    <part id="${o.id}" subtype="normal_part">
     } catch (e) {
       flash(e && e.code === "declined" ? "Export annulé." : "Export impossible ici. Ouvre la page dans claude.ai, ou génère-la avec build.py et ouvre-la dans ton navigateur.", !(e && e.code === "declined"));
     } finally { btn.disabled = false; }
+  });
+  // Version locale (fichier ouvert depuis le disque) : le .3mf seul, sans ZIP, pour que le navigateur l'ouvre
+  // directement dans Bambu Studio (« Toujours ouvrir les fichiers de ce type » dans Chrome)
+  const btnBambu = document.getElementById("btn-bambu");
+  if (location.protocol === "file:") btnBambu.hidden = false;
+  btnBambu.addEventListener("click", async () => {
+    btnBambu.disabled = true; flash("Préparation du 3MF…");
+    try {
+      const name = slug();
+      flash(`${name}.3mf ${await saveFile(name + ".3mf", new Blob([threeMF(exportGroups(project))], { type: "model/3mf" }))}. Ouvre-le pour le charger dans Bambu Studio.`);
+    } catch (e) { flash("Export du 3MF impossible.", true); }
+    finally { btnBambu.disabled = false; }
   });
   document.getElementById("btn-save").addEventListener("click", async () => {
     try {
