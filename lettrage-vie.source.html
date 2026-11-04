@@ -921,7 +921,9 @@ const FONT_DATA = /*FONTS*/[];
       const B0 = T(usbRect(u, usbW(u) + 2 * u.marge, 0, u.epaisseur));
       const hosts = out.filter(q => !q.relief && q.z0 < zTop && q.z1 > zBot && inter(q.paths, B0).length);
       if (hosts.length) {
-        const B = inter(B0, union(hosts.flatMap(q => q.paths)));
+        // Emprise de la lettre entière (toutes hauteurs) : une lettre creuse déjà découpée par un logement
+        // n'a plus de pièce pleine à la hauteur de la prise, seulement ses parois
+        const B = inter(B0, union(out.filter(q => !q.relief && inter(q.paths, B0).length).flatMap(q => q.paths)));
         const z0 = Math.max(zBot, Math.min(...hosts.map(q => q.z0))), z1 = Math.min(zTop, Math.max(...hosts.map(q => q.z1)));
         const fil = hosts.reduce((a, q) => (q.z0 < a.z0 ? q : a)).filament;
         if (B.length && z1 > z0) { out = cutSlab(out, B, z0, z1); out.push({ filament: fil, paths: B, z0, z1 }); }
