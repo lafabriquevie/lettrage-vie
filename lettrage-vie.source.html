@@ -1449,7 +1449,7 @@ const FONT_DATA = /*FONTS*/[];
           + (e.encastre === "aucun" ? "" : `<div class="row">${numCtl("jeu", "Jeu", e.jeu, 0, 1, 0.05, "mm")}${e.encastre === "poche" ? numCtl("profondeur", "Profondeur", e.profondeur, 0.4, 30, 0.2, "mm") : ""}</div>`)
           : ""}
         <p class="hint">${!e.separe ? "Utile pour une pièce trop haute ou d'une autre matière, à coller après impression."
-          : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau (dans une lettre creuse : jusqu'à un fond de l'épaisseur des parois). Vue 3D « Impression » pour voir la découpe."
+          : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau (dans une lettre creuse : logement aussi profond que la pièce, fermé par un fond de l'épaisseur des parois). Vue 3D « Impression » pour voir la découpe."
           : e.encastre === "poche" ? "Le support est creusé à l'empreinte de la pièce (plus le jeu), sur la profondeur choisie."
           : "La pièce se colle sur le dessus, sans logement."}</p>
         ${e.separe && isSocle(e) ? `<p class="hint">Support séparé : les textes et icônes posés dessus doivent aussi être en pièce séparée pour y être découpés.</p>` : ""}
@@ -1781,15 +1781,18 @@ const FONT_DATA = /*FONTS*/[];
       if (mode === "aucun" || !under.length) { sp.z = host.z + (under.length ? top : 0) + dz; return; }
       const cut = offset(sp.fp, sp.e.jeu || 0);
       // Le fond du logement suit le décalage Z : le support reste plein sous la pièce, sans vide
-      // Support creux : la découpe s'arrête sur un fond de l'épaisseur des parois, sans traverser
+      // Support creux : la découpe devient un logement aussi profond que l'épaisseur de la pièce,
+      // fermé par un fond de l'épaisseur des parois ; le creux continue derrière
+      const low = sp.comp.pieces.filter(q => !q.relief);
+      const baseTop = low.reduce((m, q) => Math.max(m, q.z1), 0);
       const creux = under.find(q => q.caisson);
-      const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : creux ? creux.z0 + creux.caisson.paroi : 0) + dz;
+      const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2))
+        : creux ? Math.max(creux.z0 + creux.caisson.paroi, top - baseTop) : 0) + dz;
       sp.z = host.z + zb;
       if (zb >= top) return; // pièce entièrement au-dessus du support : pas de logement
       // Logement plus profond que le support de la pièce : on rehausse la pièce pour qu'elle remplisse
       // le logement jusqu'au dessus du support principal, et ses lettres se posent dessus comme en montage normal
-      const need = top - zb, low = sp.comp.pieces.filter(q => !q.relief);
-      const baseTop = low.reduce((m, q) => Math.max(m, q.z1), 0);
+      const need = top - zb;
       if (need > baseTop + 0.01) {
         const d = need - baseTop;
         const fil = low.length ? low.reduce((a, q) => (q.z0 < a.z0 ? q : a)).filament : sp.e.filament;
