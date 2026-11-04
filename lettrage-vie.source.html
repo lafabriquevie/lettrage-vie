@@ -1743,6 +1743,23 @@ const FONT_DATA = /*FONTS*/[];
   // Objets à exporter : l'ensemble, puis chaque pièce séparée. L'ensemble reçoit une découpe ou une poche
   // à l'empreinte de chaque pièce séparée (plus le jeu), pour pouvoir l'encastrer.
   // layout « print » : pièces posées à plat à côté ; « monte » : pièces à leur place de montage.
+  // Logement dans un support creux : la face avant descend au fond du logement et reste un capot,
+  // entouré d'une paroi ; le creux continue dessous au lieu d'être rempli. Pièces pleines disjointes.
+  function caissonPoche(q, cut, zb) {
+    const k = q.caisson, P = q.paths, C = inter(P, cut), out = [];
+    const cap = Math.min(k.capot, q.z1 - q.z0), fz = q.z0 + Math.min(k.fond || 0, q.z1 - q.z0 - cap);
+    const fb = Math.max(fz, zb - cap); // bas du capot au fond du logement
+    const W = diff(P, offset(P, -k.paroi)); // paroi extérieure
+    const R = diff(inter(offset(cut, k.paroi), P), cut.concat(W)); // paroi autour du logement
+    const add = (paths, z0, z1) => { if (paths.length && z1 - z0 > 0.01) out.push({ filament: q.filament, paths, z0, z1 }); };
+    if (fz > q.z0) add(P, q.z0, fz);
+    add(diff(W, cut), fz, q.z1 - cap);
+    add(diff(P, cut), q.z1 - cap, q.z1);
+    add(inter(W, cut), fz, fb);
+    add(C, fb, zb);
+    add(R, fb, q.z1 - cap);
+    return out;
+  }
   function exportGroups(pr, layout = "print") {
     const vis = pr.elements.filter(e => e.visible !== false);
     const main = vis.filter(e => !e.separe);
@@ -1782,6 +1799,7 @@ const FONT_DATA = /*FONTS*/[];
       const next = [];
       for (const q of mainComp.pieces) {
         if (q.z1 <= zb || !inter(q.paths, cut).length) { next.push(q); continue; }
+        if (q.caisson && zb > q.z0) { next.push(...caissonPoche(q, cut, zb)); continue; }
         const out = diff(q.paths, cut);
         if (out.length) next.push({ ...q, paths: out });
         const inn = zb > q.z0 ? inter(q.paths, cut) : [];
