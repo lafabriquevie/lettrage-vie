@@ -1945,18 +1945,19 @@ const FONT_DATA = /*FONTS*/[];
   }
   function exportGroups(pr, layout = "print") {
     const vis = pr.elements.filter(e => e.visible !== false);
-    // Les prises USB-C percent chaque groupe, ensemble principal comme pièces séparées
+    // Les prises USB-C percent chaque groupe, ensemble principal comme pièces séparées,
+    // après les logements : percer avant ferait perdre le caisson de la lettre creuse (et donc son logement)
     const usbs = vis.filter(e => e.type === "usb");
     const main = vis.filter(e => !e.separe && e.type !== "usb");
     const seps = vis.filter(e => e.separe && e.type !== "usb").map(e => {
-      const comp = compose({ ...pr, elements: [e, ...usbs] });
+      const comp = compose({ ...pr, elements: [e] });
       const fp = union(comp.pieces.flatMap(q => q.paths));
       return { e, nom: labelOf(e), comp, fp, z: 0 };
     });
     // Hôtes des logements : l'ensemble principal, et les supports eux-mêmes séparés (lettre de fond imprimée à part),
     // qui reçoivent les textes et icônes séparés posés dessus
     const hosts = [];
-    if (main.length) hosts.push({ comp: compose({ ...pr, elements: [...main, ...usbs] }), z: 0 });
+    if (main.length) hosts.push({ comp: compose({ ...pr, elements: main }), z: 0 });
     function encastrer(host, sp) {
       // Hauteur du support sous la pièce (sans compter les textes et icônes en relief voisins)
       const under = host.comp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length);
@@ -2012,6 +2013,10 @@ const FONT_DATA = /*FONTS*/[];
     }
     // Les supports séparés récupèrent leur composition découpée
     for (const h of hosts) if (h.sp) h.sp.comp = h.comp;
+    if (usbs.length) {
+      for (const sp of seps) sp.comp = { ...sp.comp, pieces: percer(sp.comp.pieces, usbs) };
+      if (main.length) hosts[0].comp = { ...hosts[0].comp, pieces: percer(hosts[0].comp.pieces, usbs) };
+    }
     const mainComp = main.length ? hosts[0].comp : null;
     const groups = [];
     if (mainComp) groups.push({ nom: pr.nom || "Lettrage", comp: mainComp });
