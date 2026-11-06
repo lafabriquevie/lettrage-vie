@@ -15,6 +15,10 @@ python3 build.py
 
 Le script injecte les polices de `fonts/` en base64 dans le source et produit `lettrage-vie.html`, un fichier autonome. Il suffit de l'ouvrir dans un navigateur (connexion internet nécessaire pour les bibliothèques three.js, opentype.js, clipper-lib et fflate, chargées depuis cdnjs et jsdelivr).
 
+## Luminaires : prise USB-C
+
+Bouton « + Prise USB-C (luminaire) » : la prise se cale sur la paroi la plus proche (ouverture vers l'extérieur) et se déplace en la glissant le long du bord. Elle ajoute une surépaisseur pleine à l'intérieur de la lettre autour de la prise seulement (épaisseur mini de paroi, 14,5 mm par défaut ; marge au-dessus, au-dessous et sur les côtés), qui ne descend jusqu'à la face arrière que si la prise est trop basse, puis le perce d'une ouverture débouchante au profil de la prise : corps 12,30 × 5,60 mm et oreilles 14,20 × 3,40 mm par défaut, cotes jeu compris, centrées à la hauteur choisie depuis l'arrière. Fonctionne sur les lettres creuses (le caisson est découpé en pièces pleines autour de la prise) et sur les pièces séparées.
+
 ## Ouvrir directement dans Bambu Studio
 
 ```

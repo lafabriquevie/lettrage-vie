@@ -226,6 +226,7 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
         <button type="button" class="btn add" id="add-texte">+ Texte</button>
         <button type="button" class="btn add" id="add-fond">+ Lettre de fond</button>
         <button type="button" class="btn add wide" id="add-forme">+ Forme, icône ou SVG</button>
+        <button type="button" class="btn add wide" id="add-usb">+ Prise USB-C (luminaire)</button>
       </div>
       <input type="file" id="file-svg" accept=".svg,image/svg+xml" hidden>
       <ul class="layer-list" id="layer-list" role="listbox" aria-label="Éléments du projet"></ul>
@@ -657,6 +658,7 @@ const FONT_DATA = /*FONTS*/[];
     texte: { nom: "Texte" },
     fond: { nom: "Lettre de fond" },
     forme: { nom: "Forme" },
+    usb: { nom: "Prise USB-C" },
   };
   const LISERE = { lisere: false, lis_largeur: 2, lis_relief: 1, lis_filament: 2 };
   let seq = 1;
@@ -675,8 +677,13 @@ const FONT_DATA = /*FONTS*/[];
       epaisseur: 3, relief: 1.2, contour: false, support: 0, sup_largeur: 0, sup_filament: 0, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, ...LISERE,
       filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
   }
+  // Prise USB-C (luminaires) : découpe débouchante au profil de la prise, à travers un renfort de paroi
+  function newUsb(d) {
+    return { id: uid(), type: "usb", hauteur: 5, corps_l: 12.3, corps_h: 5.6, ore_l: 14.2, ore_h: 3.4, epaisseur: 14.5, marge: 3,
+      separe: false, filament: 1, x: 0, y: 0, rot: 0, visible: true, ...d };
+  }
   const isSocle = e => e.type === "fond" || (e.type === "forme" && e.pose !== "relief");
-  const labelOf = e => e.type !== "forme" ? (e.texte || "(vide)") : e.forme === "svg" ? ((e.svg && e.svg.nom) || "SVG importé") : (FORMES[e.forme] || {}).nom || "Forme";
+  const labelOf = e => e.type === "usb" ? "USB-C" : e.type !== "forme" ? (e.texte || "(vide)") : e.forme === "svg" ? ((e.svg && e.svg.nom) || "SVG importé") : (FORMES[e.forme] || {}).nom || "Forme";
   function defaultContour() {
     return { actif: true, epaisseur: 3, largeur: 1.6, lissage: 1, arriere: "plein", paroi: 1.6, capot: 1.6, fond: 0, filament: 1 };
   }
@@ -705,6 +712,12 @@ const FONT_DATA = /*FONTS*/[];
       elements: [] };
     for (const e of Array.isArray(p.elements) ? p.elements.slice(0, 60) : []) {
       if (!e || !TYPES[e.type]) continue;
+      if (e.type === "usb") {
+        const n = newUsb(e); n.id = uid(); n.separe = false;
+        for (const [k, a, b] of [["hauteur", 0, 200], ["corps_l", 1, 40], ["corps_h", 1, 40], ["ore_l", 0, 40], ["ore_h", 0, 40], ["epaisseur", 1, 60], ["marge", 0, 20]]) n[k] = clamp(+n[k] || 0, a, b);
+        out.elements.push(n);
+        continue;
+      }
       const n = e.type === "texte" ? newTexte(e) : e.type === "fond" ? newFond(e) : newForme(e);
       n.id = uid();
       if (n.type === "forme") {
@@ -767,7 +780,14 @@ const FONT_DATA = /*FONTS*/[];
 
   // ---------- Formes locales (cache) et formes placées ----------
   const localCache = new Map();
+  // Emprise d'une prise USB-C, repère local : x le long de la paroi, y vers l'intérieur (0 = bord de la paroi)
+  function usbRect(e, w, y0, y1) {
+    const h = w / 2 * S;
+    return [[{ X: -h, Y: y0 * S }, { X: h, Y: y0 * S }, { X: h, Y: y1 * S }, { X: -h, Y: y1 * S }].map(q => ({ X: Math.round(q.X), Y: Math.round(q.Y) }))];
+  }
+  const usbW = e => Math.max(e.corps_l, e.ore_h > 0 ? e.ore_l : 0);
   function localShape(e) {
+    if (e.type === "usb") return usbRect(e, usbW(e) + 2 * e.marge, -1, e.epaisseur);
     const key = e.type === "texte" ? ["t", e.texte, e.police, e.taille, e.espacement, e.rayon, e.sens].join("|")
       : e.type === "forme" ? ["s", e.forme, e.svg ? e.svg.id : "", e.taille, e.largeur, e.coin, e.branches].join("|")
       : ["f", e.texte, e.police, e.taille].join("|");
@@ -793,7 +813,8 @@ const FONT_DATA = /*FONTS*/[];
   // Champ de hauteurs = régions disjointes {paths, h}. Une couche « absolue » monte jusqu'à son
   // sommet en se posant sur ce qui est dessous ; un texte prend le point le plus haut sous lui + son relief.
   function compose(pr) {
-    const els = pr.elements.filter(e => e.visible !== false);
+    const els = pr.elements.filter(e => e.visible !== false && e.type !== "usb");
+    const usbs = pr.elements.filter(e => e.visible !== false && e.type === "usb");
     const pieces = []; // {filament, paths, z0, z1, creux?}
     let field = [];
     function place(paths, top, filament, caisson, relief) {
@@ -861,7 +882,63 @@ const FONT_DATA = /*FONTS*/[];
       place(p, top, e.filament, null, true);
       field = saved;
     });
-    return { pieces, shapes, contourPaths };
+    for (const u of usbs) shapes.set(u.id, placed(u));
+    return { pieces: usbs.length ? percer(pieces, usbs) : pieces, shapes, contourPaths };
+  }
+
+  // ---------- Prises USB-C ----------
+  // Pièce en caisson remplacée par ses pièces pleines (fond, parois, face avant), pour pouvoir la percer
+  function explode(q) {
+    const k = q.caisson, P = q.paths, out = [];
+    const cap = Math.min(k.capot, q.z1 - q.z0), fz = q.z0 + Math.min(k.fond || 0, q.z1 - q.z0 - cap);
+    const add = (paths, z0, z1) => { if (paths.length && z1 - z0 > 0.01) out.push({ filament: q.filament, paths, z0, z1 }); };
+    add(P, q.z0, fz);
+    add(diff(P, offset(P, -k.paroi)), fz, q.z1 - cap);
+    add(P, q.z1 - cap, q.z1);
+    return out;
+  }
+  // Retire l'emprise « paths » de toutes les pièces entre les hauteurs s0 et s1
+  function cutSlab(pieces, paths, s0, s1) {
+    const out = [];
+    for (const q of pieces) {
+      if (q.z1 <= s0 || q.z0 >= s1 || !inter(q.paths, paths).length) { out.push(q); continue; }
+      if (q.caisson) { out.push(...cutSlab(explode(q), paths, s0, s1)); continue; }
+      if (q.z0 < s0) out.push({ ...q, z1: s0 });
+      const m = diff(q.paths, paths);
+      if (m.length) out.push({ ...q, paths: m, z0: Math.max(q.z0, s0), z1: Math.min(q.z1, s1) });
+      if (q.z1 > s1) out.push({ ...q, z0: s1 });
+    }
+    return out;
+  }
+  // Surépaisseur pleine autour de la prise (épaisseur mini de paroi), puis ouverture débouchante au profil de la prise
+  function percer(pieces, usbs) {
+    let out = pieces;
+    for (const u of usbs) {
+      const T = paths => translate(rotate(paths, u.rot), Math.round(u.x * S), Math.round(u.y * S));
+      // Surépaisseur autour du logement seulement : marge au-dessus et au-dessous de la prise
+      const hh = Math.max(u.corps_h, u.ore_h) / 2;
+      const zTop = u.hauteur + hh + u.marge, zBot = u.hauteur - hh - u.marge;
+      const B0 = T(usbRect(u, usbW(u) + 2 * u.marge, 0, u.epaisseur));
+      const hosts = out.filter(q => !q.relief && q.z0 < zTop && q.z1 > zBot && inter(q.paths, B0).length);
+      if (hosts.length) {
+        // Emprise de la lettre entière (toutes hauteurs) : une lettre creuse déjà découpée par un logement
+        // n'a plus de pièce pleine à la hauteur de la prise, seulement ses parois
+        const B = inter(B0, union(out.filter(q => !q.relief && inter(q.paths, B0).length).flatMap(q => q.paths)));
+        const z0 = Math.max(zBot, Math.min(...hosts.map(q => q.z0))), z1 = Math.min(zTop, Math.max(...hosts.map(q => q.z1)));
+        const fil = hosts.reduce((a, q) => (q.z0 < a.z0 ? q : a)).filament;
+        if (B.length && z1 > z0) { out = cutSlab(out, B, z0, z1); out.push({ filament: fil, paths: B, z0, z1 }); }
+      }
+      // Profil : corps et oreilles centrés, découpés par tranches de hauteur
+      const rects = [[u.corps_l, u.corps_h]];
+      if (u.ore_l > 0 && u.ore_h > 0) rects.push([u.ore_l, u.ore_h]);
+      const zs = [...new Set(rects.flatMap(([, h]) => [u.hauteur - h / 2, u.hauteur + h / 2]))].sort((a, b) => a - b);
+      for (let i = 0; i < zs.length - 1; i++) {
+        const a = Math.max(0, zs[i]), b = zs[i + 1], m = (zs[i] + b) / 2;
+        const w = Math.max(0, ...rects.filter(([, h]) => Math.abs(m - u.hauteur) < h / 2).map(([w]) => w));
+        if (w > 0 && b > a) out = cutSlab(out, T(usbRect(u, w, -3, u.epaisseur + 1)), a, b);
+      }
+    }
+    return out;
   }
 
   // ---------- Extrusion ----------
@@ -1041,12 +1118,24 @@ const FONT_DATA = /*FONTS*/[];
     ctx.setLineDash([]);
     if (pv) {
       const e = project.elements.find(x => x.id === drag.id);
-      if (e) {
+      if (e && e.type !== "usb") {
         const k = e.taille / (drag.taille0 || e.taille || 1), kx = drag.largeur0 > 0 ? (e.largeur || drag.largeur0) / drag.largeur0 : k;
         ctx.translate(e.x, e.y); ctx.rotate(e.rot * Math.PI / 180); ctx.scale(kx, k); ctx.rotate(-drag.rot0 * Math.PI / 180); ctx.translate(-drag.x0, -drag.y0);
         drawPieces(pv.solo.pieces);
         if (pv.sep) { ctx.strokeStyle = "#3fcfe0"; ctx.lineWidth = 1.5 * px; ctx.setLineDash([5 * px, 4 * px]); ctx.stroke(pathW(pv.sep)); ctx.setLineDash([]); }
       }
+    }
+    // Prises USB-C : renfort en pointillé, ouverture en rouge
+    world();
+    for (const u of project.elements) {
+      if (u.type !== "usb" || u.visible === false) continue;
+      ctx.save(); ctx.translate(u.x, u.y); ctx.rotate(u.rot * Math.PI / 180);
+      const W = usbW(u), m = u.marge;
+      ctx.strokeStyle = "#ff6b7a"; ctx.lineWidth = 1.2 * px; ctx.setLineDash([4 * px, 3 * px]);
+      ctx.strokeRect(-W / 2 - m, 0, W + 2 * m, u.epaisseur);
+      ctx.setLineDash([]); ctx.fillStyle = "#ff6b7a88";
+      ctx.fillRect(-u.corps_l / 2, -2, u.corps_l, u.epaisseur + 2);
+      ctx.restore();
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Sélection
@@ -1091,7 +1180,7 @@ const FONT_DATA = /*FONTS*/[];
   function hitElement(wx, wy) {
     const [sx, sy] = toScreen(wx, wy);
     const els = project.elements.filter(e => e.visible !== false);
-    const order = [...els.filter(e => e.type === "texte").reverse(), ...els.filter(e => e.type === "fond").reverse()];
+    const order = [...els.filter(e => e.type === "usb").reverse(), ...els.filter(e => e.type === "texte").reverse(), ...els.filter(e => e.type === "fond").reverse()];
     for (const e of order) {
       const path = pathOf(comp.shapes.get(e.id) || []);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1186,6 +1275,7 @@ const FONT_DATA = /*FONTS*/[];
       r = ((r + 540) % 360) - 180;
       e.rot = ev.shiftKey ? Math.round(r / 15) * 15 : Math.round(r);
     } else if (drag.kind === "scale") {
+      if (e.type === "usb") return;
       const k = Math.hypot(wx - e.x, wy - e.y) / drag.d0;
       e.taille = clamp(Math.round(drag.taille0 * k * 2) / 2, 2, 250);
       if (drag.largeur0 > 0) e.largeur = clamp(Math.round(drag.largeur0 * e.taille / drag.taille0 * 2) / 2, 2, 250);
@@ -1196,9 +1286,14 @@ const FONT_DATA = /*FONTS*/[];
     pointers.delete(ev.pointerId);
     if (!drag) return;
     const wasEdit = drag.kind === "move" || drag.kind === "rot" || drag.kind === "scale";
+    const drag0 = drag;
     drag = pointers.size ? null : null;
     plan.className = "";
-    if (wasEdit) { rebuild(); commit(true); renderProps(); }
+    if (wasEdit) {
+      const u = drag0 && drag0.kind === "move" && project.elements.find(x => x.id === drag0.id && x.type === "usb");
+      if (u) alignUsb(u);
+      rebuild(); commit(true); renderProps();
+    }
     queuePlan();
   }
   plan.addEventListener("pointerup", endDrag);
@@ -1287,7 +1382,7 @@ const FONT_DATA = /*FONTS*/[];
     layerList.innerHTML = rows.map(({ e, i }) => `
       <li class="layer${e.visible === false ? " off" : ""}" role="option" aria-selected="${e.id === selected}" data-id="${e.id}" tabindex="0">
         <span class="sw" style="background:${project.filaments[e.filament - 1]}"></span>
-        <span class="nm">${esc(labelOf(e))}<small>${e.type === "forme" ? (e.pose === "relief" ? "Forme en relief" : "Support") : TYPES[e.type].nom} · F${e.filament}${e.separe ? " · à part" : ""}</small></span>
+        <span class="nm">${esc(labelOf(e))}<small>${e.type === "usb" ? "Découpe débouchante" : `${e.type === "forme" ? (e.pose === "relief" ? "Forme en relief" : "Support") : TYPES[e.type].nom} · F${e.filament}${e.separe ? " · à part" : ""}`}</small></span>
         <span class="acts">
           <button type="button" class="ico" data-act="vis" title="${e.visible === false ? "Afficher" : "Masquer"}" aria-label="${e.visible === false ? "Afficher" : "Masquer"}">${e.visible === false ? "○" : "●"}</button>
           <button type="button" class="ico" data-act="up" title="Monter" aria-label="Monter" ${i === els.length - 1 ? "disabled" : ""}>↑</button>
@@ -1315,6 +1410,30 @@ const FONT_DATA = /*FONTS*/[];
     const li = ev.target.closest(".layer");
     if (li && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); select(li.dataset.id); }
   });
+  // Cale une prise USB-C sur le bord de support le plus proche, ouverture vers l'extérieur
+  function alignUsb(u) {
+    const c = comp || compose(project);
+    const polys = [];
+    for (const e of project.elements) if (e.visible !== false && isSocle(e) && c.shapes.get(e.id)) polys.push(...c.shapes.get(e.id));
+    polys.push(...(c.contourPaths || []));
+    const outline = union(polys);
+    if (!outline.length) return false;
+    const px = u.x * S, py = u.y * S;
+    let best = null;
+    for (const poly of outline) for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length], dx = b.X - a.X, dy = b.Y - a.Y, L2 = dx * dx + dy * dy;
+      if (!L2) continue;
+      const t = clamp(((px - a.X) * dx + (py - a.Y) * dy) / L2, 0, 1), qx = a.X + t * dx, qy = a.Y + t * dy;
+      const d = Math.hypot(px - qx, py - qy);
+      if (!best || d < best.d) best = { d, qx, qy, nx: -dy / Math.sqrt(L2), ny: dx / Math.sqrt(L2) };
+    }
+    const inside = (x, y) => outline.reduce((w, p) => w + (CL.Clipper.PointInPolygon({ X: Math.round(x), Y: Math.round(y) }, p) ? (CL.Clipper.Orientation(p) ? 1 : -1) : 0), 0) > 0;
+    let { nx, ny } = best;
+    if (!inside(best.qx + nx * S, best.qy + ny * S)) { nx = -nx; ny = -ny; }
+    u.x = Math.round(best.qx / S * 10) / 10; u.y = Math.round(best.qy / S * 10) / 10;
+    u.rot = Math.round(Math.atan2(-nx, ny) * 180 / Math.PI);
+    return true;
+  }
   function addElement(e) {
     project.elements.push(e);
     selected = e.id;
@@ -1343,6 +1462,11 @@ const FONT_DATA = /*FONTS*/[];
     fitView();
     const inp = document.getElementById("p-texte");
     if (inp) { inp.focus(); inp.select(); }
+  });
+  document.getElementById("add-usb").addEventListener("click", () => {
+    const u = newUsb({ x: view.cx, y: view.cy });
+    alignUsb(u);
+    addElement(u);
   });
   document.getElementById("add-fond").addEventListener("click", () => {
     project.elements.unshift(newFond({ x: view.cx, y: view.cy }));
@@ -1479,6 +1603,24 @@ const FONT_DATA = /*FONTS*/[];
           </div></div>`;
       return;
     }
+    if (e.type === "usb") {
+      propsTitle.innerHTML = `Prise USB-C <small>découpe débouchante</small>`;
+      propsBody.innerHTML = `
+        <div class="group"><h3>Position</h3>
+          <div class="row">${numCtl("x", "X", e.x, -150, 150, 0.5, "mm")}${numCtl("y", "Y", e.y, -150, 150, 0.5, "mm")}</div>
+          ${numCtl("rot", "Orientation", e.rot, -180, 180, 1, "°")}
+          <div class="row"><button type="button" class="btn sm" data-do="align">Aligner sur la paroi</button><button type="button" class="btn sm" data-do="dup">Dupliquer</button></div>
+          ${numCtl("hauteur", "Hauteur du centre (depuis l'arrière)", e.hauteur, 0, 200, 0.1, "mm")}
+          <p class="hint">Glisse la prise contre le bord de la lettre : elle se cale sur la paroi la plus proche, ouverture vers l'extérieur.</p></div>
+        <div class="group"><h3>Profil de la prise</h3>
+          <div class="row">${numCtl("corps_l", "Largeur", e.corps_l, 1, 40, 0.05, "mm")}${numCtl("corps_h", "Hauteur", e.corps_h, 1, 40, 0.05, "mm")}</div>
+          <div class="row">${numCtl("ore_l", "Largeur oreilles", e.ore_l, 0, 40, 0.05, "mm")}${numCtl("ore_h", "Hauteur oreilles", e.ore_h, 0, 40, 0.05, "mm")}</div>
+          <p class="hint">Cotes jeu compris. Oreilles à 0 pour un simple rectangle.</p></div>
+        <div class="group"><h3>Renfort</h3>
+          <div class="row">${numCtl("epaisseur", "Épaisseur mini de paroi", e.epaisseur, 1, 60, 0.1, "mm")}${numCtl("marge", "Marge autour", e.marge, 0, 20, 0.5, "mm")}</div>
+          <p class="hint">Surépaisseur pleine à l'intérieur de la lettre autour de la prise : la marge s'ajoute au-dessus, au-dessous et sur les côtés de l'ouverture, qui la traverse. Si le bas de l'ouverture moins la marge passe sous la lettre, elle descend jusqu'à la face inférieure.</p></div>`;
+      return;
+    }
     propsTitle.innerHTML = `${e.type === "forme" ? esc(labelOf(e)) : TYPES[e.type].nom} <small>F${e.filament}</small>`;
     const common = `
       <div class="group"><h3>Position</h3>
@@ -1612,6 +1754,7 @@ const FONT_DATA = /*FONTS*/[];
     if (d && o) {
       if (d.dataset.do === "center") { o.x = 0; o.y = 0; changed(false); }
       if (d.dataset.do === "dup") duplicate(o.id);
+      if (d.dataset.do === "align") { alignUsb(o); changed(false); }
       if (d.dataset.do === "contour-on") { project.contour.actif = true; changed(false); }
       return;
     }
@@ -1804,8 +1947,11 @@ const FONT_DATA = /*FONTS*/[];
   }
   function exportGroups(pr, layout = "print") {
     const vis = pr.elements.filter(e => e.visible !== false);
-    const main = vis.filter(e => !e.separe);
-    const seps = vis.filter(e => e.separe).map(e => {
+    // Les prises USB-C percent chaque groupe, ensemble principal comme pièces séparées,
+    // après les logements : percer avant ferait perdre le caisson de la lettre creuse (et donc son logement)
+    const usbs = vis.filter(e => e.type === "usb");
+    const main = vis.filter(e => !e.separe && e.type !== "usb");
+    const seps = vis.filter(e => e.separe && e.type !== "usb").map(e => {
       const comp = compose({ ...pr, elements: [e] });
       const fp = union(comp.pieces.flatMap(q => q.paths));
       return { e, nom: labelOf(e), comp, fp, z: 0 };
@@ -1869,6 +2015,10 @@ const FONT_DATA = /*FONTS*/[];
     }
     // Les supports séparés récupèrent leur composition découpée
     for (const h of hosts) if (h.sp) h.sp.comp = h.comp;
+    if (usbs.length) {
+      for (const sp of seps) sp.comp = { ...sp.comp, pieces: percer(sp.comp.pieces, usbs) };
+      if (main.length) hosts[0].comp = { ...hosts[0].comp, pieces: percer(hosts[0].comp.pieces, usbs) };
+    }
     const mainComp = main.length ? hosts[0].comp : null;
     const groups = [];
     if (mainComp) groups.push({ nom: pr.nom || "Lettrage", comp: mainComp });
