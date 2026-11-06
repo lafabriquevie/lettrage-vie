@@ -15,6 +15,14 @@ python3 build.py
 
 Le script injecte les polices de `fonts/` en base64 dans le source et produit `lettrage-vie.html`, un fichier autonome. Il suffit de l'ouvrir dans un navigateur (connexion internet nécessaire pour les bibliothèques three.js, opentype.js, clipper-lib et fflate, chargées depuis cdnjs et jsdelivr).
 
+## Ouvrir directement dans Bambu Studio
+
+```
+python3 serve.py
+```
+
+Reconstruit la page, la sert sur http://localhost:8765 et l'ouvre dans le navigateur. Le bouton « Ouvrir dans Bambu » envoie alors le 3MF au serveur local, qui l'enregistre dans `~/Downloads/Lettrage Vié/` et lance Bambu Studio dessus (sur macOS, `open -a BambuStudio`, puis « Bambu Studio », puis l'application par défaut des .3mf ; un autre nom se passe par la variable `BAMBU_APP`). Le serveur n'écoute que sur la machine et n'accepte que les envois de sa propre page. Page ouverte directement depuis le disque : le bouton télécharge le .3mf seul.
+
 ## La page
 
 - **Plan de travail** vu de dessus : clic pour sélectionner, glisser pour déplacer (aimantation au centre), poignée ronde pour tourner (Maj = pas de 15°), poignée carrée pour agrandir. Molette ou pincement pour zoomer, glisser sur le vide pour déplacer la vue.

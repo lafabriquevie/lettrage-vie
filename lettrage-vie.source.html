@@ -31,8 +31,8 @@ button { font: inherit; color: inherit; }
 .app {
   display: grid; height: 100%; gap: 10px;
   grid-template-columns: 220px minmax(0, 1fr) 320px;
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-template-areas: "top top top" "layers stage props";
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "top top top" "layers stage props" "log log log";
   padding-block: 10px;
   padding-left: max(12px, env(safe-area-inset-left, 0px));
   padding-right: max(12px, env(safe-area-inset-right, 0px));
@@ -92,7 +92,21 @@ button { font: inherit; color: inherit; }
 .tabs button + button { border-left: 1px solid var(--line-2); }
 .tabs button[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); }
 .zoom { display: inline-flex; gap: 4px; }
-.status { position: absolute; top: 48px; left: 12px; right: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); pointer-events: none; }
+.status { position: absolute; top: 48px; left: 12px; right: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Sortie : console repliable en bas de l'écran */
+.journal { grid-area: log; font-family: var(--font-mono); font-size: 11px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; min-width: 0; }
+.journal summary { cursor: pointer; padding: 6px 12px; color: var(--muted); list-style: none; user-select: none; display: flex; gap: 10px; align-items: center; }
+.journal summary::-webkit-details-marker { display: none; }
+.journal summary::before { content: "▸"; }
+.journal[open] summary::before { content: "▾"; }
+.journal summary b { font-family: var(--font-display); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; font-size: 10px; color: var(--accent); }
+.journal summary .last { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.journal summary.alert .last, .journal summary.alert b { color: var(--danger); }
+.journal summary .btn { margin-left: auto; }
+.journal ol { list-style: none; margin: 0; padding: 8px 12px 10px; border-top: 1px solid var(--line); height: 170px; overflow: auto; display: flex; flex-direction: column; gap: 3px; background: var(--stage); }
+.journal li { color: var(--fg); overflow-wrap: anywhere; user-select: text; }
+.journal li.err { color: var(--danger); }
+.journal li time { color: var(--muted); margin-right: 8px; }
 .status.err { color: var(--danger); }
 .hud { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; flex-wrap: wrap; pointer-events: none; }
 .hud > * { pointer-events: auto; }
@@ -180,10 +194,10 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
 .fontlist button:hover, .fontlist button[aria-selected="true"] { background: var(--accent-dim); }
 .fontlist h4 { margin: 6px 8px 2px; font-family: var(--font-display); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 @media (max-width: 1000px) {
-  .app { grid-template-columns: 200px minmax(0, 1fr); grid-template-areas: "top top" "layers stage" "props props"; grid-template-rows: auto minmax(420px, 1fr) auto; height: auto; min-height: 100%; }
+  .app { grid-template-columns: 200px minmax(0, 1fr); grid-template-areas: "top top" "layers stage" "props props" "log log"; grid-template-rows: auto minmax(420px, 1fr) auto auto; height: auto; min-height: 100%; }
 }
 @media (max-width: 680px) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "layers" "props"; grid-template-rows: auto 420px auto auto; }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "layers" "props" "log"; grid-template-rows: auto 420px auto auto auto; }
   .tools .btn { padding: 7px 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .switch input::after { transition: none; } }
@@ -199,6 +213,7 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
       <button type="button" class="btn sm" id="btn-new">Nouveau</button>
       <button type="button" class="btn sm" id="btn-open">Ouvrir</button>
       <button type="button" class="btn sm" id="btn-save">Enregistrer</button>
+      <button type="button" class="btn" id="btn-bambu" hidden title="Envoie le 3MF à Bambu Studio (outil lancé avec python3 serve.py)">Ouvrir dans Bambu</button>
       <button type="button" class="btn primary" id="btn-export">Exporter 3MF + STL</button>
       <input type="file" id="file-open" accept=".json,application/json" hidden>
     </div>
@@ -244,6 +259,8 @@ input[type="color"] { width: 100%; height: 32px; border: 1px solid var(--line-2)
     <div class="status" id="status" role="status"></div>
     <div class="hud"><div class="dims" id="dims"></div></div>
   </main>
+
+  <details class="journal" id="journal"><summary><b>Sortie</b><span class="count">0</span><span class="last"></span><button type="button" class="btn sm" id="journal-clear">Effacer</button></summary><ol id="journal-list" aria-live="polite"></ol></details>
 
   <section class="panel props" aria-label="Propriétés">
     <h2 id="props-title">Projet</h2>
@@ -1209,6 +1226,29 @@ const FONT_DATA = /*FONTS*/[];
 
   // ---------- Recalcul ----------
   const statusEl = document.getElementById("status");
+  // Journal repliable des messages système : historique complet, le plus récent en haut
+  const journal = document.getElementById("journal"), journalList = document.getElementById("journal-list");
+  const journalSum = journal.querySelector("summary"), journalCount = journalSum.querySelector(".count"), journalLast = journalSum.querySelector(".last");
+  let journalN = 0, lastLog = "";
+  function log(msg, err) {
+    if (!msg || msg === lastLog) return;
+    lastLog = msg; journalN++;
+    const li = document.createElement("li");
+    if (err) li.className = "err";
+    const t = document.createElement("time");
+    t.textContent = new Date().toLocaleTimeString("fr-FR");
+    li.append(t, msg);
+    journalList.prepend(li);
+    while (journalList.children.length > 100) journalList.lastChild.remove();
+    journalCount.textContent = journalN; journalLast.textContent = msg;
+    if (err && !journal.open) journalSum.classList.add("alert");
+  }
+  journal.addEventListener("toggle", () => { if (journal.open) journalSum.classList.remove("alert"); });
+  document.getElementById("journal-clear").addEventListener("click", ev => {
+    ev.preventDefault(); // ne replie pas la sortie
+    journalList.replaceChildren(); journalN = 0; lastLog = "";
+    journalCount.textContent = "0"; journalLast.textContent = ""; journalSum.classList.remove("alert");
+  });
   const dimsEl = document.getElementById("dims");
   let solids3dDirty = true;
   function rebuild(light) {
@@ -1220,12 +1260,14 @@ const FONT_DATA = /*FONTS*/[];
         const w = b.w / S, h = b.h / S, z = Math.max(0, ...comp.pieces.map(p => p.z1));
         const m = (k, v) => `<span class="m"><i>${k}</i><b>${v.toFixed(1)}<small>mm</small></b></span>`;
         dimsEl.innerHTML = m("Largeur", w) + m("Hauteur", h) + m("Épaisseur", z);
-        if (w > PLATE || h > PLATE) { statusEl.textContent = `Attention : plus grand qu'un plateau de ${PLATE} mm.`; statusEl.classList.add("err"); }
+        if (w > PLATE || h > PLATE) { statusEl.textContent = `Attention : plus grand qu'un plateau de ${PLATE} mm.`; statusEl.classList.add("err"); log(statusEl.textContent, true); }
       } else dimsEl.innerHTML = "";
       document.getElementById("btn-export").disabled = !b;
+      document.getElementById("btn-bambu").disabled = !b;
     } catch (err) {
       statusEl.textContent = "Calcul impossible avec ces réglages : " + err.message;
       statusEl.classList.add("err");
+      log(statusEl.textContent, true);
     }
     solids3dDirty = true;
     if (!light && mode3d) render3dModel();
@@ -1449,9 +1491,10 @@ const FONT_DATA = /*FONTS*/[];
           + (e.encastre === "aucun" ? "" : `<div class="row">${numCtl("jeu", "Jeu", e.jeu, 0, 1, 0.05, "mm")}${e.encastre === "poche" ? numCtl("profondeur", "Profondeur", e.profondeur, 0.4, 30, 0.2, "mm") : ""}</div>`)
           : ""}
         <p class="hint">${!e.separe ? "Utile pour une pièce trop haute ou d'une autre matière, à coller après impression."
-          : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau. Vue 3D « Impression » pour voir la découpe."
+          : e.encastre === "traversant" ? "Le support est découpé à l'empreinte de la pièce (plus le jeu) : elle s'y emboîte jusqu'au plateau (dans une lettre creuse : logement aussi profond que la pièce, fermé par un fond de l'épaisseur des parois). Vue 3D « Impression » pour voir la découpe."
           : e.encastre === "poche" ? "Le support est creusé à l'empreinte de la pièce (plus le jeu), sur la profondeur choisie."
           : "La pièce se colle sur le dessus, sans logement."}</p>
+        ${e.separe && isSocle(e) ? `<p class="hint">Support séparé : les textes et icônes posés dessus doivent aussi être en pièce séparée pour y être découpés.</p>` : ""}
       </div>`;
     if (e.type === "forme") propsBody.innerHTML = formeProps(e, common);
     else if (e.type === "texte") {
@@ -1743,6 +1786,22 @@ const FONT_DATA = /*FONTS*/[];
   // Objets à exporter : l'ensemble, puis chaque pièce séparée. L'ensemble reçoit une découpe ou une poche
   // à l'empreinte de chaque pièce séparée (plus le jeu), pour pouvoir l'encastrer.
   // layout « print » : pièces posées à plat à côté ; « monte » : pièces à leur place de montage.
+  // Logement dans un support creux : un fond aussi épais que les parois, entouré d'une paroi ; le creux continue dessous au lieu d'être rempli. Pièces pleines disjointes.
+  function caissonPoche(q, cut, zb) {
+    const k = q.caisson, P = q.paths, C = inter(P, cut), out = [];
+    const cap = Math.min(k.capot, q.z1 - q.z0), fz = q.z0 + Math.min(k.fond || 0, q.z1 - q.z0 - cap);
+    const fb = Math.max(fz, zb - k.paroi); // fond du logement, aussi épais que les parois
+    const W = diff(P, offset(P, -k.paroi)); // paroi extérieure
+    const R = diff(inter(offset(cut, k.paroi), P), cut.concat(W)); // paroi autour du logement
+    const add = (paths, z0, z1) => { if (paths.length && z1 - z0 > 0.01) out.push({ filament: q.filament, paths, z0, z1 }); };
+    if (fz > q.z0) add(P, q.z0, fz);
+    add(diff(W, cut), fz, q.z1 - cap);
+    add(diff(P, cut), q.z1 - cap, q.z1);
+    add(inter(W, cut), fz, fb);
+    add(C, fb, zb);
+    add(R, fb, q.z1 - cap);
+    return out;
+  }
   function exportGroups(pr, layout = "print") {
     const vis = pr.elements.filter(e => e.visible !== false);
     const main = vis.filter(e => !e.separe);
@@ -1751,31 +1810,66 @@ const FONT_DATA = /*FONTS*/[];
       const fp = union(comp.pieces.flatMap(q => q.paths));
       return { e, nom: labelOf(e), comp, fp, z: 0 };
     });
-    let mainComp = main.length ? compose({ ...pr, elements: main }) : null;
-    if (mainComp) for (const sp of seps) {
-      if (!sp.fp.length) continue;
+    // Hôtes des logements : l'ensemble principal, et les supports eux-mêmes séparés (lettre de fond imprimée à part),
+    // qui reçoivent les textes et icônes séparés posés dessus
+    const hosts = [];
+    if (main.length) hosts.push({ comp: compose({ ...pr, elements: main }), z: 0 });
+    function encastrer(host, sp) {
       // Hauteur du support sous la pièce (sans compter les textes et icônes en relief voisins)
-      const under = mainComp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length);
+      const under = host.comp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length);
       const top = under.reduce((m, q) => Math.max(m, q.z1), 0);
       const mode = sp.e.encastre || "aucun";
       const dz = +sp.e.dz || 0;
-      if (mode === "aucun" || !under.length) { sp.z = (under.length ? top : 0) + dz; continue; }
+      if (mode === "aucun" || !under.length) { sp.z = host.z + (under.length ? top : 0) + dz; return; }
       const cut = offset(sp.fp, sp.e.jeu || 0);
       // Le fond du logement suit le décalage Z : le support reste plein sous la pièce, sans vide
-      const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2)) : 0) + dz;
-      sp.z = zb;
-      if (zb >= top) continue; // pièce entièrement au-dessus du support : pas de logement
+      // Support creux : la découpe devient un logement aussi profond que l'épaisseur de la pièce,
+      // fermé par un fond de l'épaisseur des parois ; le creux continue derrière
+      const low = sp.comp.pieces.filter(q => !q.relief);
+      const baseTop = low.reduce((m, q) => Math.max(m, q.z1), 0);
+      const creux = under.find(q => q.caisson);
+      const zb = (mode === "poche" ? Math.max(0, top - (sp.e.profondeur || 2))
+        : creux ? Math.max(creux.z0 + creux.caisson.paroi, top - baseTop) : 0) + dz;
+      sp.z = host.z + zb;
+      if (zb >= top) return; // pièce entièrement au-dessus du support : pas de logement
+      // Logement plus profond que le support de la pièce : on rehausse la pièce pour qu'elle remplisse
+      // le logement jusqu'au dessus du support principal, et ses lettres se posent dessus comme en montage normal
+      const need = top - zb;
+      if (need > baseTop + 0.01) {
+        const d = need - baseTop;
+        const fil = low.length ? low.reduce((a, q) => (q.z0 < a.z0 ? q : a)).filament : sp.e.filament;
+        const keep = [];
+        for (const q of sp.comp.pieces) {
+          if (q.relief) keep.push({ ...q, z0: q.z0 + d, z1: q.z1 + d });
+          else if (q.z1 > need) keep.push({ ...q, z0: Math.max(q.z0, need) });
+        }
+        sp.comp = { ...sp.comp, pieces: [{ filament: fil, paths: sp.fp, z0: 0, z1: need }, ...keep] };
+      }
       const next = [];
-      for (const q of mainComp.pieces) {
+      for (const q of host.comp.pieces) {
         if (q.z1 <= zb || !inter(q.paths, cut).length) { next.push(q); continue; }
+        if (q.caisson && zb > q.z0) { next.push(...caissonPoche(q, cut, zb)); continue; }
         const out = diff(q.paths, cut);
         if (out.length) next.push({ ...q, paths: out });
         const inn = zb > q.z0 ? inter(q.paths, cut) : [];
         if (inn.length) next.push({ filament: q.filament, paths: inn, z0: q.z0, z1: zb });
       }
-      mainComp = { ...mainComp, pieces: next };
+      host.comp = { ...host.comp, pieces: next };
     }
-    if (!mainComp) for (const sp of seps) sp.z = +sp.e.dz || 0;
+    for (const sp of seps) sp.z = +sp.e.dz || 0;
+    // Supports séparés d'abord (ils se logent dans l'ensemble), puis les pièces qui se posent sur eux
+    for (const sp of [...seps.filter(x => isSocle(x.e)), ...seps.filter(x => !isSocle(x.e))]) {
+      if (!sp.fp.length) continue;
+      const cands = hosts.filter(h => h.sp !== sp && (!isSocle(sp.e) || !h.sp) && h.comp.pieces.some(q => !q.relief && inter(q.paths, sp.fp).length));
+      if (cands.length) {
+        const top = h => h.z + Math.max(...h.comp.pieces.filter(q => !q.relief && inter(q.paths, sp.fp).length).map(q => q.z1));
+        encastrer(cands.reduce((a, h) => (top(h) > top(a) ? h : a)), sp);
+      }
+      if (isSocle(sp.e)) hosts.push({ comp: sp.comp, z: sp.z, sp });
+    }
+    // Les supports séparés récupèrent leur composition découpée
+    for (const h of hosts) if (h.sp) h.sp.comp = h.comp;
+    const mainComp = main.length ? hosts[0].comp : null;
     const groups = [];
     if (mainComp) groups.push({ nom: pr.nom || "Lettrage", comp: mainComp });
     groups.push(...seps);
@@ -1855,7 +1949,14 @@ ${g.objs.map(o => `    <part id="${o.id}" subtype="normal_part">
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     return "téléchargé";
   }
-  function flash(msg, err) { statusEl.textContent = msg; statusEl.classList.toggle("err", !!err); }
+  // Message court sur la vue (effacé après quelques secondes), texte complet dans le journal
+  let flashTimer = 0;
+  function flash(msg, err) {
+    statusEl.textContent = msg; statusEl.classList.toggle("err", !!err);
+    log(msg, err);
+    clearTimeout(flashTimer);
+    if (!/…$/.test(msg)) flashTimer = setTimeout(() => { if (statusEl.textContent === msg) { statusEl.textContent = ""; statusEl.classList.remove("err"); } }, err ? 8000 : 4000);
+  }
   document.getElementById("btn-export").addEventListener("click", async ev => {
     const btn = ev.currentTarget;
     btn.disabled = true; flash("Préparation des fichiers…");
@@ -1865,6 +1966,25 @@ ${g.objs.map(o => `    <part id="${o.id}" subtype="normal_part">
     } catch (e) {
       flash(e && e.code === "declined" ? "Export annulé." : "Export impossible ici. Ouvre la page dans claude.ai, ou génère-la avec build.py et ouvre-la dans ton navigateur.", !(e && e.code === "declined"));
     } finally { btn.disabled = false; }
+  });
+  // Version locale. Servie par serve.py : le serveur enregistre le .3mf et lance Bambu Studio.
+  // Ouverte depuis le disque : téléchargement du .3mf seul, sans ZIP.
+  const btnBambu = document.getElementById("btn-bambu");
+  const viaServeur = location.protocol === "http:" && ["localhost", "127.0.0.1"].includes(location.hostname);
+  if (viaServeur || location.protocol === "file:") btnBambu.hidden = false;
+  btnBambu.addEventListener("click", async () => {
+    btnBambu.disabled = true; flash("Préparation du 3MF…");
+    try {
+      const name = slug(), data = threeMF(exportGroups(project));
+      if (viaServeur) {
+        const r = await fetch("/bambu", { method: "POST", headers: { "X-Lettrage": "1", "X-Nom": name }, body: data });
+        const t = await r.text();
+        flash(r.ok ? `Ouvert dans Bambu Studio (${t}).` : t || "Bambu Studio ne s'est pas ouvert.", !r.ok);
+      } else {
+        flash(`${name}.3mf ${await saveFile(name + ".3mf", new Blob([data], { type: "model/3mf" }))}. Pour l'ouvrir directement dans Bambu, lance l'outil avec python3 serve.py.`);
+      }
+    } catch (e) { flash("Envoi vers Bambu impossible : serve.py est-il lancé ?", true); }
+    finally { btnBambu.disabled = false; }
   });
   document.getElementById("btn-save").addEventListener("click", async () => {
     try {
